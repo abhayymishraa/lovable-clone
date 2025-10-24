@@ -1,3 +1,4 @@
+from sys import orig_argv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -5,7 +6,8 @@ from pydantic import BaseModel
 import asyncio
 import json
 from agent.service import agent_service
-
+from agent.prompts import ENHANCED_PROMPT, validate_request_security
+from  agent.agent import llm, llm_openai_min
 app = FastAPI(title="lovable")
 
 
@@ -29,8 +31,23 @@ class ChatPayload(BaseModel):
 @app.post("/chat/{id}")
 async def create_project(id: str, payload: dict):
     prompt = payload.get("prompt")
+    print("req rec")
     if not prompt:
         return JSONResponse({"error": "Too short or no description"}, status_code=400)
+    
+    securitycheck = await validate_request_security(prompt=prompt)
+
+    if securitycheck.get("security_risk", False):
+        return JSONResponse({
+            "error": "Request blocked for security reasons",
+            "reason": securitycheck.get("reason"),
+            "security_risk": True
+        }, status_code=403)
+    
+    # Use minimal model for enhanced prompt generation
+    prompt_enrich = ENHANCED_PROMPT.format(user_prompt_goes_here=prompt)
+    response = await llm_openai_min.ainvoke(prompt_enrich)
+    enhanced_prompt = response.content
     
     if id in active_runs:
         return JSONResponse({"error": "Project is being created. Kindly wait"}, status_code=400)
@@ -40,9 +57,12 @@ async def create_project(id: str, payload: dict):
             while id not in active_sockets:
                 await asyncio.sleep(0.2)
             socket = active_sockets[id]
-            await agent_service.run_agent_stream(prompt=prompt, id=id, socket=socket)
+            await agent_service.run_agent_stream(prompt=enhanced_prompt, id=id, socket=socket)
         except Exception as e:
             print(f"Error in agent task for project {id}: {e}")
+            print(f"Error type: {type(e)}")
+            import traceback
+            traceback.print_exc()
         finally:
             active_runs.pop(id, None)
     

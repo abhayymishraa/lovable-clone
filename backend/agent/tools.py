@@ -1,8 +1,10 @@
+from e2b_code_interpreter import AsyncSandbox
+from fastapi import WebSocket
 from langchain_core.tools import tool
 from typing import Dict, Any
 import os
 
-def create_tools_with_context(sandbox, socket):
+def create_tools_with_context(sandbox: AsyncSandbox, socket: WebSocket):
     """Create tools with sandbox and socket context"""
     
     @tool
@@ -49,7 +51,7 @@ def create_tools_with_context(sandbox, socket):
         try:
             # The React app is in /home/user/react-app
             full_path = os.path.join("/home/user/react-app", file_path)
-            await sandbox.files.delete(full_path)
+            await sandbox.files.(full_path)
             await socket.send_json({
                 'e': 'file_deleted',
                 'message': f"Deleted {file_path}"
