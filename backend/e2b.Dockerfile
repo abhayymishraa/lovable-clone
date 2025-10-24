@@ -11,4 +11,4 @@ RUN npm create vite@5.2.1 react-app -- --template react && \
 
 WORKDIR /home/user/react-app
 
-RUN echo "import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\nexport default defineConfig({\n  plugins: [react()],\n  server: {\n    host: true,\n    allowedHosts: true \n  }\n})" > vite.config.js
+RUN echo "import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\nexport default defineConfig({\n  plugins: [react()],\n \n  }\n})" > vite.config.js
