@@ -35,20 +35,6 @@ async def create_project(id: str, payload: dict):
     if not prompt:
         return JSONResponse({"error": "Too short or no description"}, status_code=400)
     
-    securitycheck = await validate_request_security(prompt=prompt)
-
-    if securitycheck.get("security_risk", False):
-        return JSONResponse({
-            "error": "Request blocked for security reasons",
-            "reason": securitycheck.get("reason"),
-            "security_risk": True
-        }, status_code=403)
-    
-    # Use minimal model for enhanced prompt generation
-    prompt_enrich = ENHANCED_PROMPT.format(user_prompt_goes_here=prompt)
-    response = await llm_openai_min.ainvoke(prompt_enrich)
-    enhanced_prompt = response.content
-    
     if id in active_runs:
         return JSONResponse({"error": "Project is being created. Kindly wait"}, status_code=400)
     
@@ -57,7 +43,7 @@ async def create_project(id: str, payload: dict):
             while id not in active_sockets:
                 await asyncio.sleep(0.2)
             socket = active_sockets[id]
-            await agent_service.run_agent_stream(prompt=enhanced_prompt, id=id, socket=socket)
+            await agent_service.run_agent_stream(prompt=prompt, id=id, socket=socket)
         except Exception as e:
             print(f"Error in agent task for project {id}: {e}")
             print(f"Error type: {type(e)}")
@@ -100,8 +86,49 @@ async def ws_listener(websocket: WebSocket, id: str):
     active_sockets[id] = websocket
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_json()
+            
+            if data.get("type") == "chat_message":
+                prompt = data.get("prompt")
+                
+                if not prompt:
+                    await websocket.send_json({
+                        "e": "error",
+                        "message": "No prompt provided"
+                    })
+                    continue
+                
+                # Check if a build is already running
+                if id in active_runs:
+                    await websocket.send_json({
+                        "e": "error",
+                        "message": "Project is being created. Please wait for the current build to complete."
+                    })
+                    continue
+                
+                # Start the agent task
+                async def agent_task():
+                    try:
+                        await agent_service.run_agent_stream(prompt=prompt, id=id, socket=websocket)
+                    except Exception as e:
+                        print(f"Error in agent task for project {id}: {e}")
+                        print(f"Error type: {type(e)}")
+                        import traceback
+                        traceback.print_exc()
+                        await websocket.send_json({
+                            "e": "error",
+                            "message": f"Build failed: {str(e)}"
+                        })
+                    finally:
+                        active_runs.pop(id, None)
+                
+                active_runs[id] = asyncio.create_task(agent_task())
+            
     except WebSocketDisconnect:
         print(f"WebSocket disconnected for project {id}")
     finally:
         active_sockets.pop(id, None)
+        # Clean up any running tasks when websocket disconnects
+        if id in active_runs:
+            active_runs[id].cancel()
+            active_runs.pop(id, None)

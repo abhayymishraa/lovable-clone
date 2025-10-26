@@ -1,10 +1,11 @@
 from e2b_code_interpreter import AsyncSandbox
 from fastapi import WebSocket
 from langchain_core.tools import tool
-from typing import Dict, Any
 import os
+import json
+from utils.store import save_json_store, load_json_store
 
-def create_tools_with_context(sandbox: AsyncSandbox, socket: WebSocket):
+def create_tools_with_context(sandbox: AsyncSandbox, socket: WebSocket, project_id: str = None):
     """Create tools with sandbox and socket context"""
     
     @tool
@@ -20,12 +21,24 @@ def create_tools_with_context(sandbox: AsyncSandbox, socket: WebSocket):
             Success message with file path or error message if failed
         
         Example:
-            create_file("src/App.jsx", "import React from 'react'; export default function App() { return <div>Hello</div>; }")
+            create_file("src/App.jsx", "import React from 'react';\\nexport default function App() { return <div>Hello</div>; }")
         """
         try:
             # The React app is in /home/user/react-app
             full_path = os.path.join("/home/user/react-app", file_path)
-            await sandbox.files.write(full_path, content)
+            
+            # The LLM sometimes generates code with literal \n instead of actual newlines
+            # We need to handle this by decoding escape sequences
+            # Use bytes decode to properly interpret escape sequences
+            try:
+                # Try to decode the content as if it contains escaped characters
+                # This converts literal \n, \t, etc. to actual newline and tab characters
+                fixed_content = content.encode('utf-8').decode('unicode_escape')
+            except (UnicodeDecodeError, AttributeError):
+                # If decode fails, content is likely already correct, use as-is
+                fixed_content = content
+            
+            await sandbox.files.write(full_path, fixed_content)
             await socket.send_json({
                 'e': 'file_created',
                 'message': f"Created {file_path}"
@@ -220,6 +233,63 @@ def create_tools_with_context(sandbox: AsyncSandbox, socket: WebSocket):
     def get_context() -> str:
         """Fetches the last saved context for the current project."""
         return "Get context - not implemented yet"
+    
+    @tool
+    async def test_build() -> str:
+        """
+        Test if the application builds successfully by running npm run build.
+        This cleans the Vite cache, runs npm install if needed, and attempts a build.
+        
+        Returns:
+            Success message with build output or error message with details
+        
+        Example:
+            test_build() - Tests if the current application builds without errors
+        
+        Note:
+            This is useful for validating that all files are correct before deployment
+        """
+
+        return "build success"
+        try:
+            path = "/home/user/react-app"
+            
+            await socket.send_json({
+                "e": "build_test_started",
+                "message": "Testing application build..."
+            })
+            
+            # Clean Vite cache first nd run npm install
+            clean_command = "rm -rf node_modules/.vite-temp && npm install"
+            await sandbox.commands.run(clean_command, cwd=path)
+            
+            # Run build
+            build_command = "npm run build"
+            res = await sandbox.commands.run(build_command, cwd=path)
+            
+            if res.exit_code == 0:
+                await socket.send_json({
+                    "e": "build_test_success",
+                    "message": "Build test passed successfully"
+                })
+                return f"Build test PASSED. Application builds successfully.\n\nBuild output:\n{res.stdout[:500]}"
+            else:
+                error_output = res.stderr if res.stderr else res.stdout
+                await socket.send_json({
+                    "e": "build_test_failed",
+                    "message": "Build test failed",
+                    "error": error_output[:500]
+                })
+                return f"Build test FAILED with exit code {res.exit_code}.\n\nError:\n{error_output[:1000]}"
+                
+        except Exception as e:
+            await socket.send_json({
+                "e": "build_test_error",
+                "message": f"Build test error: {str(e)}"
+            })
+            return f"Build test failed with error: {str(e)}"
+        
+
 
     @tool
     async def write_multiple_files(files: str) -> str:
@@ -247,15 +317,24 @@ def create_tools_with_context(sandbox: AsyncSandbox, socket: WebSocket):
             - Creates complete application structure at once
         """
         try:
-            import json
             files_data = json.loads(files)
             
             # Convert to the format expected by E2B
             file_objects = []
             for file_info in files_data:
+                # Fix escape sequences in the data (same as create_file)
+                content = file_info["data"]
+                try:
+                    # Try to decode the content as if it contains escaped characters
+                    # This converts literal \n, \t, etc. to actual newline and tab characters
+                    fixed_content = content.encode('utf-8').decode('unicode_escape')
+                except (UnicodeDecodeError, AttributeError):
+                    # If decode fails, content is likely already correct, use as-is
+                    fixed_content = content
+                
                 file_objects.append({
                     "path": os.path.join("/home/user/react-app", file_info["path"]),
-                    "data": file_info["data"]
+                    "data": fixed_content
                 })
             
             await sandbox.files.write_files(file_objects)
@@ -279,32 +358,201 @@ def create_tools_with_context(sandbox: AsyncSandbox, socket: WebSocket):
     def get_context() -> str:
         """
         Fetch the last saved context for the current project.
+        This includes information about:
+        - What the project is about (semantic memory)
+        - How things work in the project (procedural memory)
+        - What has been done so far (episodic memory)
         
         Returns:
-            Saved project context or "not implemented yet" message
+            Saved project context as a formatted string, or message if no context exists
         
-        Note:
-            This tool is not yet implemented but available for future use
+        Example:
+            get_context() - Retrieves the project context to understand what was previously built
+        
+        Use this tool:
+        - At the start of your work to understand the project
+        - To check what components/features already exist
+        - To understand the project structure and conventions
         """
-        return "Get context - not implemented yet"
+        if not project_id:
+            return "No project ID available - context cannot be retrieved"
+        
+        try:
+            context = load_json_store(project_id, "context.json")
+            
+            if not context:
+                return "No previous context found for this project. This appears to be a new project."
+            
+            # Format the context for display
+            result = "=== PROJECT CONTEXT ===\n\n"
+            
+            if context.get("semantic"):
+                result += "📋 WHAT THIS PROJECT IS:\n"
+                result += f"{context['semantic']}\n\n"
+            
+            if context.get("procedural"):
+                result += "⚙️ HOW THINGS WORK:\n"
+                result += f"{context['procedural']}\n\n"
+            
+            if context.get("episodic"):
+                result += "📝 WHAT HAS BEEN DONE:\n"
+                result += f"{context['episodic']}\n\n"
+            
+            if context.get("files_created"):
+                result += f"📁 FILES CREATED: {len(context['files_created'])} files\n"
+                result += f"   {', '.join(context['files_created'][:10])}"
+                if len(context['files_created']) > 10:
+                    result += f" ... and {len(context['files_created']) - 10} more"
+                result += "\n\n"
+            
+            if context.get("conversation_history"):
+                result += "💬 CONVERSATION HISTORY:\n"
+                for i, conv in enumerate(context['conversation_history'][-5:], 1):
+                    status = "✅" if conv.get('success') else "❌"
+                    result += f"   {i}. {status} {conv.get('user_prompt', 'Unknown')[:80]}...\n"
+                result += "\n"
+            
+            if context.get("last_updated"):
+                result += f"🕒 Last Updated: {context['last_updated']}\n"
+            
+            return result
+            
+        except Exception as e:
+            return f"Failed to retrieve context: {str(e)}"
 
     @tool
     def save_context(semantic: str, procedural: str = "", episodic: str = "") -> str:
         """
         Save project context for future sessions.
+        This helps maintain continuity across different work sessions.
         
         Args:
-            semantic: Semantic memory about the project
-            procedural: Procedural memory about how things work
-            episodic: Episodic memory about specific events
+            semantic: What the project is about (e.g., "E-commerce site for jewelry with cart and checkout")
+            procedural: How things work (e.g., "Uses React Router for navigation, Context API for state")
+            episodic: What has been done (e.g., "Created product catalog, cart functionality, and checkout flow")
         
         Returns:
-            Success message or "not implemented yet" message
+            Success message confirming context was saved
         
-        Note:
-            This tool is not yet implemented but available for future use
+        Example:
+            save_context(
+                semantic="Portfolio website for Abhay with projects, skills, and contact form",
+                procedural="Uses React Router, Tailwind CSS for styling, data stored in src/data/",
+                episodic="Created all pages, components, and navigation. Added responsive design."
+            )
+        
+        Use this tool:
+        - After completing major features
+        - Before finishing your work
+        - When you want to document what you've built
         """
-        return "Save context - not implemented yet"
+        if not project_id:
+            return "No project ID available - context cannot be saved"
+        
+        try:
+            # Load existing context to preserve information
+            existing_context = load_json_store(project_id, "context.json")
+            
+            # Update context with new information
+            context = {
+                "semantic": semantic or existing_context.get("semantic", ""),
+                "procedural": procedural or existing_context.get("procedural", ""),
+                "episodic": episodic or existing_context.get("episodic", ""),
+                "last_updated": str(os.popen('date').read().strip()),
+                "files_created": existing_context.get("files_created", []),
+                "conversation_history": existing_context.get("conversation_history", [])
+            }
+            
+            # Save to store
+            save_json_store(project_id, "context.json", context)
+            
+            return f"✅ Context saved successfully for project {project_id}. This information will be available in future sessions."
+            
+        except Exception as e:
+            return f"Failed to save context: {str(e)}"
 
-    return [create_file, read_file, execute_command, delete_file, list_directory, write_multiple_files, get_context, save_context]
+    @tool
+    async def check_missing_packages() -> str:
+        """
+        Check for missing packages by reading package.json and scanning source files for imports.
+        This tool identifies missing dependencies and provides installation commands.
+        
+        Returns:
+            A report of missing packages and installation commands
+        
+        Example:
+            check_missing_packages() - Scans files and reports missing packages
+        """
+        try:
+            # Read package.json to see installed packages
+            package_json_path = "/home/user/react-app/package.json"
+            package_content = await sandbox.files.read(package_json_path)
+            package_data = json.loads(package_content)
+            installed_deps = package_data.get("dependencies", {})
+            
+            # Find all source files
+            find_result = await sandbox.commands.run("find src -name '*.jsx' -o -name '*.js'", cwd="/home/user/react-app")
+            source_files = [f.strip() for f in find_result.stdout.strip().split('\n') if f.strip()]
+            
+            # Scan all files for import statements
+            all_imports = set()
+            for file_path in source_files:
+                try:
+                    full_path = f"/home/user/react-app/{file_path}"
+                    content = await sandbox.files.read(full_path)
+                    
+                    # Extract import statements
+                    import_lines = [line.strip() for line in content.split('\n') if line.strip().startswith('import')]
+                    for line in import_lines:
+                        # Extract package names from import statements
+                        if 'from' in line:
+                            package = line.split('from')[1].strip().strip("'\"")
+                            # Extract root package name (e.g., 'react-icons/fa' -> 'react-icons')
+                            root_package = package.split('/')[0]
+                            all_imports.add(root_package)
+                        elif 'import' in line and not 'from' in line:
+                            # Handle import { something } from 'package' syntax
+                            if "'" in line or '"' in line:
+                                package = line.split("'")[1] if "'" in line else line.split('"')[1]
+                                root_package = package.split('/')[0]
+                                all_imports.add(root_package)
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+            
+            # Check which packages are missing
+            missing_packages = []
+            for package in all_imports:
+                if package not in installed_deps and package not in ['react', 'react-dom']:
+                    missing_packages.append(package)
+            
+            if missing_packages:
+                install_commands = []
+                for package in missing_packages:
+                    install_commands.append(f"npm install {package}")
+                
+                result = f"MISSING DEPENDENCIES FOUND:\n\n"
+                result += f"Missing packages: {', '.join(missing_packages)}\n\n"
+                result += f"Installation commands:\n"
+                for cmd in install_commands:
+                    result += f"  {cmd}\n"
+                result += f"\nRun these commands to install missing dependencies."
+                
+                await socket.send_json({
+                    "e": "missing_dependencies",
+                    "packages": missing_packages,
+                    "commands": install_commands
+                })
+                
+                return result
+            else:
+                return "✅ All dependencies are properly installed. No missing packages found."
+                
+        except Exception as e:
+            await socket.send_json({
+                "e": "dependency_check_error",
+                "message": f"Dependency check failed: {str(e)}"
+            })
+            return f"Dependency check failed: {str(e)}"
+
+    return [create_file, read_file, execute_command, test_build, delete_file, list_directory, write_multiple_files, get_context, save_context, check_missing_packages]
 

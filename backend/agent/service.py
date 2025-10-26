@@ -1,7 +1,7 @@
 from .graph_builder import get_workflow
 from .graph_state import GraphState
 from .prompts import PLANNER_PROMPT, BUILDER_PROMPT, IMPORT_CHECKER_PROMPT, APP_CHECKER_PROMPT
-
+import subprocess
 from typing import Dict
 from e2b_code_interpreter import AsyncSandbox
 from dotenv import load_dotenv
@@ -109,6 +109,48 @@ class Service:
                 print(f"Failed to restore {file_path}: {e}")
         
         print(f"File restoration complete for project {project_id}")
+        
+        # Clean Vite cache to prevent permission issues
+        try:
+            await sandbox.commands.run("rm -rf node_modules/.vite-temp", cwd="/home/user/react-app")
+            print("Cleaned Vite cache after restoration")
+        except Exception as e:
+            print(f"Failed to clean Vite cache: {e}")
+    
+    async def _save_conversation_history(self, project_id: str, user_prompt: str, success: bool):
+        """Save conversation history to context for future reference"""
+        try:
+            from utils.store import load_json_store, save_json_store
+            import time
+            
+            # Load existing context
+            context = load_json_store(project_id, "context.json")
+            
+            # Get or initialize conversation history
+            conversation_history = context.get("conversation_history", [])
+            
+            # Add new conversation entry
+            conversation_entry = {
+                "timestamp": time.time(),
+                "user_prompt": user_prompt,
+                "success": success,
+                "date": str(os.popen('date').read().strip())
+            }
+            
+            conversation_history.append(conversation_entry)
+            
+            # Keep only last 10 conversations to avoid bloat
+            if len(conversation_history) > 10:
+                conversation_history = conversation_history[-10:]
+            
+            # Update context
+            context["conversation_history"] = conversation_history
+            save_json_store(project_id, "context.json", context)
+            
+            print(f"Saved conversation history for project {project_id}")
+            
+        except Exception as e:
+            print(f"Failed to save conversation history: {e}")
     
     async def snapshot_project_files(self, project_id: str):
         """Snapshot all source files from sandbox to disk"""
@@ -194,6 +236,7 @@ class Service:
             
             # Initialize state for LangGraph workflow
             initial_state = {
+                "project_id": id,
                 "user_prompt": prompt,
                 "enhanced_prompt": prompt,  # Will be enhanced by main.py
                 "plan": None,
@@ -228,10 +271,16 @@ class Service:
             # Snapshot files to disk
             await self.snapshot_project_files(id)
             
+            # Save conversation history to context
+            await self._save_conversation_history(id, prompt, final_state.get("success", False))
+            
             # Handle final results
             if final_state.get("success", False):
                 host = sandbox.get_host(port=5173)
                 url = f"https://{host}"
+
+                subprocess.call(["curl", "-X", "GET", url])
+                subprocess.call(["curl", "-X", "GET", url])
                 
                 await socket.send_json({
                     "e": "workflow_completed",

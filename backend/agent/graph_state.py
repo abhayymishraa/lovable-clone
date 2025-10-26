@@ -7,7 +7,7 @@ from langchain_core.messages import BaseMessage
 class GraphState(TypedDict):
     """State schema for the LangGraph multi-agent system"""
     
-    # Core inputs
+    project_id: str
     user_prompt: str
     enhanced_prompt: str
     
