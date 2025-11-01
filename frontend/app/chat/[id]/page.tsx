@@ -1,7 +1,19 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ArrowUp, Plus, Paperclip, ChevronLeft, Loader2, Eye, EyeOff } from "lucide-react";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  e?: string;
+  url?: string;
+}
 
 type WebSocketMessage = {
   e: string;
@@ -12,18 +24,23 @@ type WebSocketMessage = {
 
 export default function ChatIdPage() {
   const params = useParams();
+  const router = useRouter();
   const chatId = params.id as string;
   
   const [wsConnected, setWsConnected] = useState(false);
-  const [messages, setMessages] = useState<WebSocketMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState('');
+  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [appUrl, setAppUrl] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [previewWidth, setPreviewWidth] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
   
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -31,7 +48,41 @@ export default function ChatIdPage() {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Handle drag resize
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return;
+
+      const container = containerRef.current;
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const chatWidth = (mouseX / rect.width) * 100;
+      const newPreviewWidth = 100 - chatWidth;
+
+      if (chatWidth > 20 && chatWidth < 70) {
+        setPreviewWidth(newPreviewWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging]);
+
+  useEffect(() => {
     // Save messages to localStorage
     localStorage.setItem(`chat_messages_${chatId}`, JSON.stringify(messages));
   }, [messages, chatId]);
@@ -76,7 +127,7 @@ export default function ChatIdPage() {
     // WebSocket connection setup
     const connectWebSocket = () => {
       try {
-        const wsUrl = `ws://localhost:8000/ws/${chatId}`;
+        const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws/${chatId}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
@@ -106,7 +157,17 @@ export default function ChatIdPage() {
               setIsBuilding(false);
             }
             
-            setMessages((prev) => [...prev, data]);
+            // Convert WebSocketMessage to Message
+            const newMessage: Message = {
+              id: Date.now().toString() + '-assistant',
+              role: 'assistant',
+              content: data.message || '',
+              timestamp: new Date(),
+              e: data.e,
+              url: data.url
+            };
+            
+            setMessages((prev) => [...prev, newMessage]);
           } catch (err) {
             console.error('Failed to parse WebSocket message:', err);
           }
@@ -137,259 +198,185 @@ export default function ChatIdPage() {
     };
   }, [chatId]);
 
-  const handleSendPrompt = (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prompt.trim() || !wsRef.current || isBuilding) return;
-    
+    if (!input.trim() || !wsRef.current || isBuilding) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input.trim(),
+      timestamp: new Date(),
+    };
+
     // Send message through WebSocket
     const message = {
       type: 'chat_message',
-      prompt: prompt.trim()
+      prompt: input.trim()
     };
     wsRef.current.send(JSON.stringify(message));
 
     // Add user message to chat
-    setMessages((prev) => [
-      ...prev,
-      {
-        e: 'user_message',
-        message: prompt,
-        timestamp: new Date().toLocaleTimeString(),
-      },
-    ]);
-    
-    setPrompt('');
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('');
     setIsBuilding(true); // Immediately show building state
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Left Sidebar - Chat Interface (30%) */}
-      <div className="w-3/10 bg-white border-r border-gray-200 flex flex-col">
+    <div className="min-h-screen w-full bg-black relative overflow-hidden" ref={containerRef}>
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 50% 100% at 10% 0%, rgba(226, 232, 240, 0.15), transparent 65%), #000000",
+        }}
+      />
+      
+      <div className="relative z-10 h-screen flex flex-col">
         {/* Header */}
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h1 className="text-xl font-semibold text-gray-900">Build</h1>
-          <p className="text-xs text-gray-500 mt-1">ID: {chatId.slice(0, 8)}...</p>
-        </div>
-
-        {/* Connection Status */}
-        <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-            <span className="text-xs text-gray-600">
-              {wsConnected ? 'Connected to backend' : 'Connecting...'}
-            </span>
-          </div>
-        </div>
-
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2 border-4 border-blue-200 border-t-blue-600 rounded-full"></div>
-                <p className="text-sm text-gray-600">Loading chat...</p>
-              </div>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-center">
-              <div>
-                <div className="w-12 h-12 text-gray-300 mx-auto mb-2">✨</div>
-                <p className="text-sm text-gray-600 mb-1">No messages yet</p>
-                <p className="text-xs text-gray-400">Your build progress will appear here</p>
-              </div>
-            </div>
-          ) : (
-            messages.map((msg, index) => (
-              <div 
-                key={index}
-                className={`flex ${msg.e === 'user_message' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div 
-                  className={`max-w-xs px-4 py-3 rounded-lg ${
-                    msg.e === 'user_message'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {msg.e !== 'user_message' && (
-                      <span className="text-lg flex-shrink-0 mt-0.5">⚡</span>
-                    )}
-                    <div className="flex-1">
-                      {msg.message && (
-                        <p className="text-sm">{msg.message}</p>
-                      )}
-                      {msg.e && msg.e !== 'user_message' && (
-                        <p className="text-xs opacity-75 mt-1">{msg.e}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mx-4 mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Input Area */}
-        <div className="border-t border-gray-200 p-4">
-          <form onSubmit={handleSendPrompt} className="flex gap-2">
-            <input
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Ask for changes..."
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              disabled={!wsConnected}
-            />
-            <button
-              type="submit"
-              disabled={!wsConnected || !prompt.trim()}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              ➤
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Right Preview Panel (70%) */}
-      <div className="flex-1 bg-gradient-to-br from-gray-50 to-white flex flex-col">
-        {/* Preview Header */}
-        <div className="border-b border-gray-200 px-8 py-6 bg-white">
+        <div className="border-b border-white/5 backdrop-blur-md px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Preview</h2>
-              <p className="text-sm text-gray-600 mt-1">Live preview of your application</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                Refresh
-              </button>
-              <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
-                Export
-              </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/")}
+              className="text-white/60 hover:text-white hover:bg-white/5 font-sans"
+            >
+              <ChevronLeft size={24} />
+            </Button>
+            <h1 className="font-mono font-semibold tracking-tight text-white">WEB BUILDER AI</h1>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowPreview(!showPreview)}
+                className="text-white/60 hover:text-white hover:bg-white/5 hidden md:flex"
+              >
+                {showPreview ? <Eye size={20} /> : <EyeOff size={20} />}
+              </Button>
+              <Button className="bg-white text-black hover:bg-slate-100 text-sm font-sans">
+                New Chat
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Preview Content */}
-        <div className="flex-1 p-8 overflow-auto">
-          {isBuilding || (!appUrl && messages.length === 0) ? (
-            // Loading/Building State
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-full p-8 flex flex-col items-center justify-center">
-              <div className="text-center">
-                {/* Sandbox Loading Animation */}
-                <div className="mb-6">
-                  <div className="w-16 h-16 mx-auto mb-4 relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-lg animate-pulse"></div>
-                    <div className="absolute inset-1 bg-white rounded-lg"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        {/* Main Content Area */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Chat Panel */}
+          <div
+            className="flex flex-col border-r border-white/5"
+            style={{
+              width: showPreview ? `${100 - previewWidth}%` : "100%",
+              transition: isDragging ? "none" : "width 0.3s ease-out",
+            }}
+          >
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((msg, index) => (
+                <div 
+                  key={index}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div 
+                    className={`max-w-xs px-4 py-3 rounded-lg ${
+                      msg.role === 'user'
+                        ? 'bg-white text-black'
+                        : 'bg-white/5 text-white border border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {msg.role !== 'user' && (
+                        <span className="text-lg shrink-0 mt-0.5">⚡</span>
+                      )}
+                      <div className="flex-1 font-sans">
+                        {msg.content && (
+                          <p className="text-sm">{msg.content}</p>
+                        )}
+                        {msg.e && msg.role !== 'user' && (
+                          <p className="text-xs opacity-75 mt-1 font-mono">{msg.e}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
 
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {isBuilding ? 'Building Your App' : 'Initializing Sandbox'}
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  {isBuilding 
-                    ? 'Creating your application in the sandbox...' 
-                    : 'Waiting for build to start...'}
-                </p>
-
-                {/* Progress Steps */}
-                <div className="space-y-3 text-left max-w-sm mx-auto">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
-                      messages.some(m => m.e === 'planner_complete') 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {messages.some(m => m.e === 'planner_complete') ? '✓' : '1'}
+            {/* Input Area */}
+            <div className="border-t border-white/5 bg-black/40 backdrop-blur-md p-4">
+              <form onSubmit={handleSendMessage}>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 hover:border-white/20 transition-colors">
+                  <div className="flex gap-3">
+                    <Input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Type your message..."
+                      className="flex-1 border-0 bg-transparent text-white font-sans placeholder:text-white/40 focus-visible:ring-0"
+                      disabled={!wsConnected || isBuilding}
+                    />
+                    <div className="flex items-center gap-1">
+                      <button type="button" className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white">
+                        <Plus size={18} />
+                      </button>
+                      <button type="button" className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white">
+                        <Paperclip size={18} />
+                      </button>
+                      <Button
+                        type="submit"
+                        disabled={!wsConnected || !input.trim() || isBuilding}
+                        size="icon"
+                        className="rounded-lg w-8 h-8 bg-white text-black hover:bg-slate-100"
+                      >
+                        <ArrowUp size={16} />
+                      </Button>
                     </div>
-                    <span className="text-sm text-gray-700">Planning</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
-                      messages.some(m => m.e === 'builder_complete') 
-                        ? 'bg-green-100 text-green-700' 
-                        : messages.some(m => m.e === 'builder_started')
-                        ? 'bg-blue-100 text-blue-700 animate-pulse'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {messages.some(m => m.e === 'builder_complete') ? '✓' : '2'}
-                    </div>
-                    <span className="text-sm text-gray-700">Building</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
-                      messages.some(m => m.e === 'code_validator_complete') 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {messages.some(m => m.e === 'code_validator_complete') ? '✓' : '3'}
-                    </div>
-                    <span className="text-sm text-gray-700">Validating</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium ${
-                      appUrl 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
-                      {appUrl ? '✓' : '4'}
-                    </div>
-                    <span className="text-sm text-gray-700">Launching</span>
                   </div>
                 </div>
+              </form>
+            </div>
+          </div>
 
-                <p className="text-xs text-gray-500 mt-6">
-                  This usually takes 1-2 minutes
-                </p>
-              </div>
-            </div>
-          ) : appUrl ? (
-            // App Loaded - Show iframe
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-full overflow-hidden">
-              <iframe
-                src={appUrl}
-                title="Generated App Preview"
-                className="w-full h-full border-0"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
-              />
-            </div>
-          ) : (
-            // No URL yet - Show placeholder
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-full p-8 flex flex-col items-center justify-center">
-              <div className="text-center">
-                <div className="w-12 h-12 text-gray-300 mx-auto mb-4">📱</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No Preview Available
-                </h3>
-                <p className="text-gray-600">
-                  Send a prompt in the chat to generate an app
-                </p>
+          {/* Divider */}
+          {showPreview && (
+            <div
+              className="w-1 bg-white/5 hover:bg-white/20 cursor-col-resize transition-colors"
+              onMouseDown={() => setIsDragging(true)}
+              style={{ userSelect: "none" }}
+            />
+          )}
+
+          {/* Preview Area */}
+          {showPreview && (
+            <div 
+              className="flex flex-col bg-black/50 border-l border-white/5"
+              style={{
+                width: `${previewWidth}%`,
+              }}
+            >
+              <div className="flex-1 p-6">
+                {appUrl ? (
+                  <div className="w-full h-full rounded-lg overflow-hidden border border-white/10">
+                    <iframe
+                      src={appUrl}
+                      title="App Preview"
+                      className="w-full h-full"
+                      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-full rounded-lg border border-white/10 flex items-center justify-center">
+                    <div className="text-center">
+                      <Eye className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                      <p className="text-white/60 font-sans">Preview will appear here</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
-        </div>
-
-        {/* Preview Footer */}
-        <div className="border-t border-gray-200 bg-white px-8 py-4 text-xs text-gray-500 text-center">
-          Preview updates in real-time as your app is built
         </div>
       </div>
     </div>

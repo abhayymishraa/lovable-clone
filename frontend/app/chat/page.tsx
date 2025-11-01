@@ -1,49 +1,42 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import type React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Plus, Paperclip, Settings, ArrowUp } from "lucide-react";
 import { v4 } from 'uuid';
 
 export default function ChatPage() {
-  const router = useRouter();
-  const [prompt, setPrompt] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!prompt.trim()) {
-      setError('Please enter a prompt');
-      return;
-    }
+    if (!input.trim()) return;
 
     setIsLoading(true);
-    setError(null);
-
     try {
       // Generate UUID for this chat
       const chatId = v4();
       
       // Call FastAPI backend to start the agent
-      const response = await fetch(`http://localhost:8000/chat/${chatId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/${chatId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: input.trim() }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start chat');
+        throw new Error(errorData.error || "Failed to start chat");
       }
 
-      // Successfully started, redirect to chat page
       router.push(`/chat/${chatId}`);
-    } catch (err) {
-      console.error('Error starting chat:', err);
-      setError(err instanceof Error ? err.message : 'Failed to start chat');
+    } catch (error) {
+      console.error("Error creating chat:", error);
       setIsLoading(false);
     }
   };
@@ -56,84 +49,118 @@ export default function ChatPage() {
   ];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 px-4">
-      <div className="w-full max-w-3xl">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            Lovable Clone
-          </h1>
-          <p className="text-xl text-gray-600">
-            Build React applications with AI
-          </p>
-        </div>
+    <div className="min-h-screen w-full relative bg-black">
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(226, 232, 240, 0.15), transparent 70%), #000000",
+        }}
+      />
 
-        {/* Main Input Form */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-2">
-                What would you like to build?
-              </label>
-              <textarea
-                id="prompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe your application... (e.g., Create a todo app with dark mode)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-900 placeholder-gray-400"
-                rows={4}
-                disabled={isLoading}
-              />
+      <nav className="relative z-20 border-b border-white/5 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="text-white font-semibold text-lg">WEB BUILDER</div>
+          <div className="flex items-center gap-8">
+            <div className="hidden md:flex gap-8 text-sm text-slate-400">
+              <a href="#" className="hover:text-white transition">
+                Pricing
+              </a>
+              <a href="#" className="hover:text-white transition">
+                Product
+              </a>
+              <a href="#" className="hover:text-white transition">
+                Docs
+              </a>
             </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="text-white border-white/20 hover:bg-white/5 bg-transparent">
+                Sign In
+              </Button>
+              <Button className="bg-white text-black hover:bg-slate-100">Sign Up</Button>
+            </div>
+          </div>
+        </div>
+      </nav>
 
-            {/* Error Message */}
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-800">{error}</p>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading || !prompt.trim()}
-              className="w-full bg-blue-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Starting your build...
-                </span>
-              ) : (
-                'Start Building'
-              )}
-            </button>
-          </form>
+      {/* Content */}
+      <div className="relative z-10 min-h-[calc(100vh-60px)] flex flex-col items-center justify-center px-4">
+        {/* Badge */}
+        <div className="mb-8 flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
+          <div className="w-2 h-2 rounded-full bg-green-400"></div>
+          <span className="text-sm text-white">New - Try AI Agents</span>
+          <span className="text-white/40">›</span>
         </div>
 
-        {/* Example Prompts */}
-        <div className="mt-8">
-          <p className="text-sm text-gray-500 mb-3 text-center">Try an example:</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {examplePrompts.map((example, index) => (
-              <button
-                key={index}
-                onClick={() => setPrompt(example)}
+        {/* Logo/Title */}
+        <div className="mb-12">
+          <h1 className="text-5xl font-semibold text-white text-center tracking-tight">WEB BUILDER AI</h1>
+        </div>
+
+        <div className="w-full max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm hover:border-white/20 transition-colors">
+              <Input
+                type="text"
+                placeholder="Message Web Builder"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
-                className="text-left px-4 py-3 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {example}
-              </button>
-            ))}
+                className="border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 text-lg"
+              />
+
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+                <div className="flex items-center gap-2">
+                  <button className="p-2 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white">
+                    <Plus size={20} />
+                  </button>
+                  <button className="p-2 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white">
+                    <Paperclip size={20} />
+                  </button>
+                  <select className="bg-transparent text-white text-sm px-2 py-1 hover:bg-white/10 rounded transition outline-none cursor-pointer">
+                    <option>Select Models</option>
+                    <option>GPT-4</option>
+                    <option>Claude 3</option>
+                    <option>Mistral</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="p-2 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white">
+                    <Settings size={20} />
+                  </button>
+                  <Button
+                    type="submit"
+                    disabled={isLoading || !input.trim()}
+                    size="icon"
+                    className="rounded-lg w-8 h-8 bg-white text-black hover:bg-slate-100"
+                  >
+                    <ArrowUp size={18} />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-white/50">
+              Get access to the best AI Agent. +30M users choose WEB BUILDER.
+              <a href="#" className="text-blue-400 hover:text-blue-300 ml-2">
+                Upgrade plan
+              </a>
+            </p>
           </div>
         </div>
 
-        {/* Footer Info */}
-        <div className="mt-12 text-center text-sm text-gray-500">
-          <p>Powered by AI • Built with Next.js & FastAPI</p>
+        <div className="mt-32 px-4 py-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm max-w-2xl w-full flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="px-3 py-1 rounded-full bg-white text-black text-xs font-semibold">New</div>
+            <span className="text-white text-sm">Advanced AI on Browser, CLI, Phone...</span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" className="text-white/60 hover:bg-white/5">
+              Close
+            </Button>
+            <Button className="bg-white text-black hover:bg-slate-100">Explore</Button>
+          </div>
         </div>
       </div>
     </div>
