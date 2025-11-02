@@ -8,6 +8,7 @@ import json
 from agent.service import agent_service
 from agent.prompts import ENHANCED_PROMPT, validate_request_security
 from  agent.agent import llm, llm_openai_min
+from auth.router import router
 app = FastAPI(title="lovable")
 
 
@@ -20,6 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(router=router)
+
 active_sockets: dict[str, WebSocket] = {}
 active_runs: dict[str, asyncio.Task] = {}
 
@@ -27,6 +30,14 @@ active_runs: dict[str, asyncio.Task] = {}
 class ChatPayload(BaseModel):
     prompt: str
 
+
+
+@app.get("/")
+async def get_health():
+    return {
+        "message": "Welome",
+        "status": "Healthy"
+    }
 
 @app.post("/chat/{id}")
 async def create_project(id: str, payload: dict):

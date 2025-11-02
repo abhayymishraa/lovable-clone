@@ -23,7 +23,7 @@ class GraphState(TypedDict):
     import_errors: List[Dict[str, Any]]
     validation_errors: List[Dict[str, Any]]
     runtime_errors: List[Dict[str, Any]]
-    
+
     # Retry tracking
     retry_count: Dict[str, int]
     max_retries: int
