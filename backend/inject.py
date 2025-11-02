@@ -1,6 +1,7 @@
 import os
 import json
 
+
 def list_files_recursive(path):
     file_structure = []
     for root, _, files in os.walk(path):
@@ -8,6 +9,7 @@ def list_files_recursive(path):
             relative_path = os.path.relpath(os.path.join(root, name), path)
             file_structure.append(relative_path)
     return file_structure
+
 
 if __name__ == "__main__":
     react_app_path = "/home/user/react-app"

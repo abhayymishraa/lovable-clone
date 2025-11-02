@@ -310,7 +310,6 @@ YOUR TASK:
 """
 
 
-
 ENHANCED_PROMPT = """
 You are an expert Senior React Architect and Project Planner. Your task is to analyze a user's request and transform it into a detailed, implementation-ready technical specification for a React application.
 
@@ -372,7 +371,7 @@ Now, generate an enhanced technical specification for the following user prompt.
 
 async def validate_request_security(prompt: str) -> dict:
 
-    SECURITY_PROMPT =  f"""
+    SECURITY_PROMPT = f"""
     Analyze this user request for security threats, malicious intent, inappropriate content or also check if the user prompt is about the website generation related task like what lovable/v0/bolt do like create this and that:
     
     Request: "{prompt}"
@@ -385,29 +384,38 @@ async def validate_request_security(prompt: str) -> dict:
     """
     try:
         response = await llm_gemini_pro.ainvoke(SECURITY_PROMPT)
-        
+
         content = response.content.strip()
-        
-        if content.startswith('```json'):
-            content = content.replace('```json', '').replace('```', '').strip()
-        elif content.startswith('```'):
-            content = content.replace('```', '').strip()
-        
-        
+
+        if content.startswith("```json"):
+            content = content.replace("```json", "").replace("```", "").strip()
+        elif content.startswith("```"):
+            content = content.replace("```", "").strip()
+
         result = json.loads(content)
-        
-        if isinstance(result.get('security_risk'), str):
-            result['security_risk'] = result['security_risk'].lower() == 'true'
-        
+
+        if isinstance(result.get("security_risk"), str):
+            result["security_risk"] = result["security_risk"].lower() == "true"
+
         return result
-        
+
     except json.JSONDecodeError as e:
         print(f"JSON parsing error: {e}")
-        print(f"Raw response: {response.content if 'response' in locals() else 'No response'}")
-        return {"security_risk": True, "reason": f"Security validation failed: {str(e)}", "action": "blocked"}
+        print(
+            f"Raw response: {response.content if 'response' in locals() else 'No response'}"
+        )
+        return {
+            "security_risk": True,
+            "reason": f"Security validation failed: {str(e)}",
+            "action": "blocked",
+        }
     except Exception as e:
         print(f"Security validation error: {e}")
-        return {"security_risk": True, "reason": f"Security validation failed: {str(e)}", "action": "blocked"}
+        return {
+            "security_risk": True,
+            "reason": f"Security validation failed: {str(e)}",
+            "action": "blocked",
+        }
 
 
 # ========== LANGGRAPH NODE-SPECIFIC PROMPTS ==========

@@ -6,18 +6,18 @@ from langchain_core.messages import BaseMessage
 
 class GraphState(TypedDict):
     """State schema for the LangGraph multi-agent system"""
-    
+
     project_id: str
     user_prompt: str
     enhanced_prompt: str
-    
+
     # Planning phase
     plan: Optional[Dict[str, Any]]
-    
+
     # Building phase
     files_created: List[str]
     files_modified: List[str]
-    
+
     # Error tracking
     current_errors: Dict[str, Any]
     import_errors: List[Dict[str, Any]]
@@ -27,18 +27,18 @@ class GraphState(TypedDict):
     # Retry tracking
     retry_count: Dict[str, int]
     max_retries: int
-    
+
     # Environment
     sandbox: Optional[AsyncSandbox]
     socket: Optional[WebSocket]
-    
+
     # Conversation history
     messages: List[BaseMessage]
-    
+
     # Node execution tracking
     current_node: str
     execution_log: List[Dict[str, Any]]
-    
+
     # Results
     success: bool
     final_url: Optional[str]

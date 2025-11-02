@@ -1,6 +1,11 @@
 from .graph_builder import get_workflow
 from .graph_state import GraphState
-from .prompts import PLANNER_PROMPT, BUILDER_PROMPT, IMPORT_CHECKER_PROMPT, APP_CHECKER_PROMPT
+from .prompts import (
+    PLANNER_PROMPT,
+    BUILDER_PROMPT,
+    IMPORT_CHECKER_PROMPT,
+    APP_CHECKER_PROMPT,
+)
 import subprocess
 from typing import Dict
 from e2b_code_interpreter import AsyncSandbox
@@ -12,10 +17,12 @@ from langchain_core.messages import HumanMessage, SystemMessage
 import os
 import json
 import time
+
 load_dotenv()
 
 TEMPLATE_ID = "63i6x6z8nd0uzadokgzg"
-base_path = "/home/user/react-app" 
+base_path = "/home/user/react-app"
+
 
 class Service:
     """
@@ -28,19 +35,21 @@ class Service:
         # File storage configuration
         self.project_timestamps: Dict[str, float] = {}  # {project_id: last_access_time}
         self.sandbox_timeout = 3600  # 1 hour
-        self.storage_base_path = os.path.join(os.path.dirname(__file__), "..", "projects")
+        self.storage_base_path = os.path.join(
+            os.path.dirname(__file__), "..", "projects"
+        )
         # Ensure storage directory exists
         os.makedirs(self.storage_base_path, exist_ok=True)
-    
+
     async def get_e2b_sandbox(self, id: str) -> AsyncSandbox:
         """Get or create E2B sandbox for project"""
         current_time = time.time()
-        
+
         # Check if sandbox exists and is still valid
         if id in self.sandboxes:
             last_access = self.project_timestamps.get(id, 0)
             time_elapsed = current_time - last_access
-            
+
             if time_elapsed < self.sandbox_timeout:
                 # Sandbox still alive, just extend timeout
                 await self.sandboxes[id].set_timeout(3600)
@@ -52,54 +61,56 @@ class Service:
                 print(f"Sandbox expired for project {id}, recreating...")
                 await self.sandboxes[id].kill()
                 del self.sandboxes[id]
-        
+
         # Create new sandbox
         print(f"Initializing new sandbox for project id = {id}")
-        self.sandboxes[id] = await AsyncSandbox.create(template=TEMPLATE_ID, timeout=1800)
+        self.sandboxes[id] = await AsyncSandbox.create(
+            template=TEMPLATE_ID, timeout=1800
+        )
         await self.sandboxes[id].set_timeout(3600)
         self.project_timestamps[id] = current_time
         print("Sandbox created with react environment")
-        
+
         # Restore files if we have them stored on disk
         await self._restore_files_from_disk(id, self.sandboxes[id])
-        
+
         return self.sandboxes[id]
-    
+
     async def close_sandbox(self, id: str):
         """Close and cleanup E2B sandbox"""
         if id in self.sandboxes:
             sandbox = self.sandboxes.pop(id)
             await sandbox.kill()
             print(f"closed sandbox: {id}")
-    
+
     async def _restore_files_from_disk(self, project_id: str, sandbox: AsyncSandbox):
         """Restore files from disk to sandbox"""
         project_dir = os.path.join(self.storage_base_path, project_id)
-        
+
         if not os.path.exists(project_dir):
             print(f"No stored files found for project {project_id}")
             return
-        
+
         # Read metadata file
         metadata_file = os.path.join(project_dir, "metadata.json")
         if not os.path.exists(metadata_file):
             print(f"No metadata found for project {project_id}")
             return
-        
-        with open(metadata_file, 'r') as f:
+
+        with open(metadata_file, "r") as f:
             metadata = json.load(f)
-        
-        files = metadata.get('files', [])
+
+        files = metadata.get("files", [])
         print(f"Restoring {len(files)} files for project {project_id}")
-        
+
         for file_path in files:
             try:
                 # Read from disk
-                local_file = os.path.join(project_dir, file_path.replace('/', '_'))
+                local_file = os.path.join(project_dir, file_path.replace("/", "_"))
                 if os.path.exists(local_file):
-                    with open(local_file, 'r', encoding='utf-8') as f:
+                    with open(local_file, "r", encoding="utf-8") as f:
                         content = f.read()
-                    
+
                     # Write to sandbox
                     full_path = f"/home/user/react-app/{file_path}"
                     await sandbox.files.write(full_path, content)
@@ -107,118 +118,125 @@ class Service:
                     print(f"Local file not found: {local_file}")
             except Exception as e:
                 print(f"Failed to restore {file_path}: {e}")
-        
+
         print(f"File restoration complete for project {project_id}")
-        
+
         # Clean Vite cache to prevent permission issues
         try:
-            await sandbox.commands.run("rm -rf node_modules/.vite-temp", cwd="/home/user/react-app")
+            await sandbox.commands.run(
+                "rm -rf node_modules/.vite-temp", cwd="/home/user/react-app"
+            )
             print("Cleaned Vite cache after restoration")
         except Exception as e:
             print(f"Failed to clean Vite cache: {e}")
-    
-    async def _save_conversation_history(self, project_id: str, user_prompt: str, success: bool):
+
+    async def _save_conversation_history(
+        self, project_id: str, user_prompt: str, success: bool
+    ):
         """Save conversation history to context for future reference"""
         try:
             from utils.store import load_json_store, save_json_store
             import time
-            
+
             # Load existing context
             context = load_json_store(project_id, "context.json")
-            
+
             # Get or initialize conversation history
             conversation_history = context.get("conversation_history", [])
-            
+
             # Add new conversation entry
             conversation_entry = {
                 "timestamp": time.time(),
                 "user_prompt": user_prompt,
                 "success": success,
-                "date": str(os.popen('date').read().strip())
+                "date": str(os.popen("date").read().strip()),
             }
-            
+
             conversation_history.append(conversation_entry)
-            
+
             # Keep only last 10 conversations to avoid bloat
             if len(conversation_history) > 10:
                 conversation_history = conversation_history[-10:]
-            
+
             # Update context
             context["conversation_history"] = conversation_history
             save_json_store(project_id, "context.json", context)
-            
+
             print(f"Saved conversation history for project {project_id}")
-            
+
         except Exception as e:
             print(f"Failed to save conversation history: {e}")
-    
+
     async def snapshot_project_files(self, project_id: str):
         """Snapshot all source files from sandbox to disk"""
         if project_id not in self.sandboxes:
             return
-        
+
         sandbox = self.sandboxes[project_id]
-        
+
         # Create project directory
         project_dir = os.path.join(self.storage_base_path, project_id)
         os.makedirs(project_dir, exist_ok=True)
-        
+
         # Define paths to snapshot
         paths_to_snapshot = [
             "src",
-            "public", 
+            "public",
             "package.json",
             "index.html",
         ]
-        
+
         files_stored = []
-        
+
         for path in paths_to_snapshot:
             try:
                 full_path = f"/home/user/react-app/{path}"
                 result = await sandbox.commands.run(
-                    f"test -f {full_path} && echo 'file' || test -d {full_path} && echo 'dir'", 
-                    cwd="/home/user/react-app"
+                    f"test -f {full_path} && echo 'file' || test -d {full_path} && echo 'dir'",
+                    cwd="/home/user/react-app",
                 )
-                
+
                 if "file" in result.stdout:
                     content = await sandbox.files.read(full_path)
-                    local_file = os.path.join(project_dir, path.replace('/', '_'))
-                    with open(local_file, 'w', encoding='utf-8') as f:
+                    local_file = os.path.join(project_dir, path.replace("/", "_"))
+                    with open(local_file, "w", encoding="utf-8") as f:
                         f.write(content)
                     files_stored.append(path)
-                    
+
                 elif "dir" in result.stdout:
                     find_result = await sandbox.commands.run(
-                        f"find {path} -type f", 
-                        cwd="/home/user/react-app"
+                        f"find {path} -type f", cwd="/home/user/react-app"
                     )
-                    file_paths = find_result.stdout.strip().split('\n')
-                    
+                    file_paths = find_result.stdout.strip().split("\n")
+
                     for file_path in file_paths:
-                        if file_path and not file_path.startswith('.'):
+                        if file_path and not file_path.startswith("."):
                             try:
-                                content = await sandbox.files.read(f"/home/user/react-app/{file_path}")
+                                content = await sandbox.files.read(
+                                    f"/home/user/react-app/{file_path}"
+                                )
                                 # Save to disk with sanitized filename
-                                local_file = os.path.join(project_dir, file_path.replace('/', '_'))
-                                with open(local_file, 'w', encoding='utf-8') as f:
+                                local_file = os.path.join(
+                                    project_dir, file_path.replace("/", "_")
+                                )
+                                with open(local_file, "w", encoding="utf-8") as f:
                                     f.write(content)
                                 files_stored.append(file_path)
                             except Exception as e:
                                 print(f"Failed to snapshot {file_path}: {e}")
             except Exception as e:
                 print(f"Failed to snapshot {path}: {e}")
-        
+
         # Save metadata
         metadata = {
-            'project_id': project_id,
-            'files': files_stored,
-            'timestamp': time.time()
+            "project_id": project_id,
+            "files": files_stored,
+            "timestamp": time.time(),
         }
         metadata_file = os.path.join(project_dir, "metadata.json")
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)
-        
+
         print(f"Snapshotted {len(files_stored)} files for project {project_id} to disk")
 
     async def run_agent_stream(self, prompt: str, id: str, socket: WebSocket):
@@ -227,13 +245,15 @@ class Service:
         """
         try:
             # Initialize workflow state
-            await socket.send_json({
-                "e": "started",
-                "message": "Starting LangGraph multi-agent workflow - initializing sandbox"
-            })
-            
+            await socket.send_json(
+                {
+                    "e": "started",
+                    "message": "Starting LangGraph multi-agent workflow - initializing sandbox",
+                }
+            )
+
             sandbox = await self.get_e2b_sandbox(id=id)
-            
+
             # Initialize state for LangGraph workflow
             initial_state = {
                 "project_id": id,
@@ -246,7 +266,11 @@ class Service:
                 "import_errors": [],
                 "validation_errors": [],
                 "runtime_errors": [],
-                "retry_count": {"import_errors": 0, "validation_errors": 0, "runtime_errors": 0},
+                "retry_count": {
+                    "import_errors": 0,
+                    "validation_errors": 0,
+                    "runtime_errors": 0,
+                },
                 "max_retries": 3,
                 "sandbox": sandbox,
                 "socket": socket,
@@ -255,25 +279,31 @@ class Service:
                 "execution_log": [],
                 "success": False,
                 "final_url": None,
-                "error_message": None
+                "error_message": None,
             }
-            
-            await socket.send_json({
-                "e": "workflow_started",
-                "message": "LangGraph workflow initialized - starting multi-agent execution"
-            })
-            
+
+            await socket.send_json(
+                {
+                    "e": "workflow_started",
+                    "message": "LangGraph workflow initialized - starting multi-agent execution",
+                }
+            )
+
             # Run the LangGraph workflow
             print(f"Starting LangGraph workflow with prompt: {prompt[:100]}...")
             final_state = await self.workflow.run_workflow(initial_state)
-            print(f"LangGraph workflow completed. Success: {final_state.get('success', False)}")
-            
+            print(
+                f"LangGraph workflow completed. Success: {final_state.get('success', False)}"
+            )
+
             # Snapshot files to disk
             await self.snapshot_project_files(id)
-            
+
             # Save conversation history to context
-            await self._save_conversation_history(id, prompt, final_state.get("success", False))
-            
+            await self._save_conversation_history(
+                id, prompt, final_state.get("success", False)
+            )
+
             # Handle final results
             if final_state.get("success", False):
                 host = sandbox.get_host(port=5173)
@@ -281,31 +311,38 @@ class Service:
 
                 subprocess.call(["curl", "-X", "GET", url])
                 subprocess.call(["curl", "-X", "GET", url])
-                
-                await socket.send_json({
-                    "e": "workflow_completed",
-                    "url": url,
-                    "message": "LangGraph workflow completed successfully",
-                    "execution_log": final_state.get("execution_log", [])
-                })
+
+                await socket.send_json(
+                    {
+                        "e": "workflow_completed",
+                        "url": url,
+                        "message": "LangGraph workflow completed successfully",
+                        "execution_log": final_state.get("execution_log", []),
+                    }
+                )
             else:
                 error_msg = final_state.get("error_message", "Unknown error")
-                await socket.send_json({
-                    "e": "workflow_error",
-                    "message": f"LangGraph workflow failed: {error_msg}",
-                    "execution_log": final_state.get("execution_log", [])
-                })
-                
+                await socket.send_json(
+                    {
+                        "e": "workflow_error",
+                        "message": f"LangGraph workflow failed: {error_msg}",
+                        "execution_log": final_state.get("execution_log", []),
+                    }
+                )
+
         except Exception as e:
             print(f"LangGraph workflow execution error: {e}")
             print(f"Error type: {type(e)}")
             import traceback
+
             traceback.print_exc()
-            
-            await socket.send_json({
-                "e": "workflow_error",
-                "message": f"LangGraph workflow execution failed: {str(e)}"
-            })
+
+            await socket.send_json(
+                {
+                    "e": "workflow_error",
+                    "message": f"LangGraph workflow execution failed: {str(e)}",
+                }
+            )
             raise
 
     async def run_legacy_agent_stream(self, prompt: str, id: str, socket: WebSocket):
@@ -313,40 +350,43 @@ class Service:
         Legacy ReAct agent implementation (backup method)
         """
         try:
-            await socket.send_json({
-                "e": "started",
-                "message": "Starting legacy ReAct agent - checking existing project structure first"
-            })
-            
+            await socket.send_json(
+                {
+                    "e": "started",
+                    "message": "Starting legacy ReAct agent - checking existing project structure first",
+                }
+            )
+
             sandbox = await self.get_e2b_sandbox(id=id)
-            
+
             # Import legacy tools and agent
             from .tools import create_tools_with_context
             from langgraph.prebuilt import create_react_agent
-            
+
             tools = create_tools_with_context(sandbox, socket)
             agent_executor = create_react_agent(llm_gemini, tools=tools)
             config = {"recursion_limit": 40}
 
             host = sandbox.get_host(port=5173)
             url = f"https://{host}"
-            
-            messages = [
-                SystemMessage(content=INITPROMPT),
-                HumanMessage(content=prompt)
-            ]
+
+            messages = [SystemMessage(content=INITPROMPT), HumanMessage(content=prompt)]
 
             if socket:
-                await socket.send_json({
-                    "e": "legacy_agent_started",
-                    "message": "Starting legacy ReAct agent"
-                })
-            
+                await socket.send_json(
+                    {
+                        "e": "legacy_agent_started",
+                        "message": "Starting legacy ReAct agent",
+                    }
+                )
+
             print(f"Starting legacy agent execution with prompt: {prompt}")
             print(f"Sandbox ID: {id}")
             print(f"Messages: {messages}")
-            
-            async for event in agent_executor.astream_events({ "messages": messages}, version="v1", config=config):
+
+            async for event in agent_executor.astream_events(
+                {"messages": messages}, version="v1", config=config
+            ):
                 kind = event["event"]
                 print(f"Legacy agent event: {kind}")
 
@@ -354,52 +394,47 @@ class Service:
                     content = event["data"]["chunk"].content
                     if content:
                         print(f"LLM thinking: {content}")
-                        await socket.send_json({
-                           "e" :"thinking",
-                           "message": content
-                        })
-                
+                        await socket.send_json({"e": "thinking", "message": content})
+
                 elif kind == "on_tool_start":
                     data = event.get("data", {})
                     tool_name = event.get("name")
                     tool_input = data.get("input", {})
                     print(f"Tool start event: {event}")
-                    await socket.send_json({
-                        "e": "tool_started",
-                        "tool": tool_name,
-                        "args": tool_input
-                    })
-                    
+                    await socket.send_json(
+                        {"e": "tool_started", "tool": tool_name, "args": tool_input}
+                    )
+
                 elif kind == "on_tool_end":
                     data = event.get("data", {})
                     tool_name = event.get("name")
                     tool_output = data.get("output")
-                    
-                    if hasattr(tool_output, 'content'):
+
+                    if hasattr(tool_output, "content"):
                         tool_output = tool_output.content
                     elif not isinstance(tool_output, str):
                         tool_output = str(tool_output)
-                    
-                    await socket.send_json({
-                        "e": "tool_ended",
-                        "tool": tool_name,
-                        "output": tool_output,
-                        "message": f"Tool {tool_name} completed successfully"
-                    })
+
+                    await socket.send_json(
+                        {
+                            "e": "tool_ended",
+                            "tool": tool_name,
+                            "output": tool_output,
+                            "message": f"Tool {tool_name} completed successfully",
+                        }
+                    )
 
             host = sandbox.get_host(port=5173)
             url = f"https://{host}"
             print(f"\nProject live at: {url}\n")
-            await socket.send_json({
-                "e" : "completed",
-                "url": url
-            })
-            
+            await socket.send_json({"e": "completed", "url": url})
+
         except Exception as e:
             print(f"Error during legacy agent execution: {e}")
             print(f"Error type: {type(e)}")
             print(f"Error details: {str(e)}")
             import traceback
+
             traceback.print_exc()
             await socket.send_json({"e": "error", "message": str(e)})
             raise

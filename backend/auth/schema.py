@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime
+from typing import Optional
 
 
 class UserRegister(BaseModel):
@@ -7,23 +8,27 @@ class UserRegister(BaseModel):
     password: str = Field(min_length=6)
     name: str = Field(min_length=1, max_length=100)
 
+
 class UserLogin(BaseModel):
-    email:EmailStr
+    email: EmailStr
     password: str
+
 
 class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
+
 class UserResponse(BaseModel):
-    model_config  = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     email: EmailStr
-    name : str
+    name: str
     created_at: datetime
+    last_query_at: Optional[datetime] = None
+
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
-     
