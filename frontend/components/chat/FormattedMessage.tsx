@@ -1,7 +1,7 @@
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface FormattedMessageProps {
   content: string;
@@ -9,12 +9,18 @@ interface FormattedMessageProps {
   type?: string;
 }
 
-export function FormattedMessage({ content, formatted, type }: FormattedMessageProps) {
+export function FormattedMessage({
+  content,
+  formatted,
+  type,
+}: FormattedMessageProps) {
   // Use formatted content if available, otherwise use raw content
   const displayContent = formatted || content;
 
   // Check if content is likely JSON (unformatted)
-  const isJson = !formatted && (content.trim().startsWith('{') || content.trim().startsWith('['));
+  const isJson =
+    !formatted &&
+    (content.trim().startsWith("{") || content.trim().startsWith("["));
 
   if (isJson) {
     try {
@@ -40,19 +46,19 @@ export function FormattedMessage({ content, formatted, type }: FormattedMessageP
         remarkPlugins={[remarkGfm]}
         components={{
           code({ node, inline, className, children, ...props }: any) {
-            const match = /language-(\w+)/.exec(className || '');
-            const language = match ? match[1] : '';
+            const match = /language-(\w+)/.exec(className || "");
+            const language = match ? match[1] : "";
 
             return !inline ? (
               <div className="relative group">
                 <SyntaxHighlighter
                   style={vscDarkPlus as any}
-                  language={language || 'text'}
+                  language={language || "text"}
                   PreTag="div"
                   className="rounded-md text-sm"
                   {...props}
                 >
-                  {String(children).replace(/\n$/, '')}
+                  {String(children).replace(/\n$/, "")}
                 </SyntaxHighlighter>
                 <button
                   onClick={() => {
@@ -64,31 +70,46 @@ export function FormattedMessage({ content, formatted, type }: FormattedMessageP
                 </button>
               </div>
             ) : (
-              <code className="bg-white/10 px-1 py-0.5 rounded text-sm" {...props}>
+              <code
+                className="bg-white/10 px-1 py-0.5 rounded text-sm"
+                {...props}
+              >
                 {children}
               </code>
             );
           },
           h1: ({ children }) => (
-            <h1 className="text-2xl font-bold text-white mt-6 mb-4">{children}</h1>
+            <h1 className="text-2xl font-bold text-white mt-6 mb-4">
+              {children}
+            </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-xl font-semibold text-white mt-5 mb-3">{children}</h2>
+            <h2 className="text-xl font-semibold text-white mt-5 mb-3">
+              {children}
+            </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-lg font-medium text-white/90 mt-4 mb-2">{children}</h3>
+            <h3 className="text-lg font-medium text-white/90 mt-4 mb-2">
+              {children}
+            </h3>
           ),
           h4: ({ children }) => (
-            <h4 className="text-base font-medium text-white/80 mt-3 mb-2">{children}</h4>
+            <h4 className="text-base font-medium text-white/80 mt-3 mb-2">
+              {children}
+            </h4>
           ),
           p: ({ children }) => (
             <p className="text-white/70 leading-relaxed my-2">{children}</p>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc list-inside space-y-1 text-white/70 my-2">{children}</ul>
+            <ul className="list-disc list-inside space-y-1 text-white/70 my-2">
+              {children}
+            </ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal list-inside space-y-1 text-white/70 my-2">{children}</ol>
+            <ol className="list-decimal list-inside space-y-1 text-white/70 my-2">
+              {children}
+            </ol>
           ),
           li: ({ children }) => (
             <li className="text-white/70 ml-2">{children}</li>

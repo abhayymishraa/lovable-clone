@@ -67,7 +67,7 @@ export function ProjectsList({ trigger }: ProjectsListProps) {
   };
 
   return (
-    <Sheet  open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         {trigger || (
           <button className="flex items-center gap-2 px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
@@ -76,7 +76,7 @@ export function ProjectsList({ trigger }: ProjectsListProps) {
           </button>
         )}
       </SheetTrigger>
-      <SheetContent  className="h-full w-[400px] sm:w-[540px] text-white bg-[#0a0a0a] border-white/10">
+      <SheetContent className="h-full w-[400px] sm:w-[540px] text-white bg-[#0a0a0a] border-white/10">
         <SheetHeader>
           <SheetTitle className="text-white text-xl">My Projects</SheetTitle>
           <SheetDescription className="text-white/60">

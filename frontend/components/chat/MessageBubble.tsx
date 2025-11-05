@@ -208,7 +208,8 @@ export function MessageBubble({
   }
 
   // Check if we have formatted content (from backend)
-  const hasFormatted = message.formatted && message.formatted !== message.content;
+  const hasFormatted =
+    message.formatted && message.formatted !== message.content;
 
   return (
     <div className="flex justify-start">
@@ -218,7 +219,7 @@ export function MessageBubble({
           <div className="flex-1 min-w-0">
             {/* Use FormattedMessage component for formatted content */}
             {hasFormatted ? (
-              <FormattedMessage 
+              <FormattedMessage
                 content={message.content}
                 formatted={message.formatted}
                 type={message.event_type}
@@ -236,7 +237,9 @@ export function MessageBubble({
                       .filter((line) => line.trim());
 
                     if (paragraphs.length > 10) {
-                      return <CollapsibleText key={i} paragraphs={paragraphs} />;
+                      return (
+                        <CollapsibleText key={i} paragraphs={paragraphs} />
+                      );
                     }
 
                     return paragraphs.map((line, j) => (

@@ -237,7 +237,10 @@ export function handleWebSocketMessage(
         {
           id: Date.now().toString() + "-plan",
           role: "assistant" as const,
-          content: typeof planContent === "object" ? JSON.stringify(planContent, null, 2) : String(planContent),
+          content:
+            typeof planContent === "object"
+              ? JSON.stringify(planContent, null, 2)
+              : String(planContent),
           formatted: formatted,
           created_at: new Date().toISOString(),
           event_type: "planner_complete",

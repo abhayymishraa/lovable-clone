@@ -26,7 +26,9 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
+  ),
   title: "WEB BUILDER AI",
   description: "Build React applications with AI",
   icons: {
@@ -34,7 +36,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "WEB BUILDER AI ",
-    description: "Build applications faster with AI-powered code generation and intelligent development assistance.",
+    description:
+      "Build applications faster with AI-powered code generation and intelligent development assistance.",
     images: [
       {
         url: "/logo.png",
@@ -48,7 +51,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "WEB BUILDER AI",
-    description: "Build applications faster with AI-powered code generation and intelligent development assistance.",
+    description:
+      "Build applications faster with AI-powered code generation and intelligent development assistance.",
     images: ["/logo.png"],
   },
 };
