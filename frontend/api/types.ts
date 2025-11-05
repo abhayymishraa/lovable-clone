@@ -38,6 +38,14 @@ export interface ChatResponse {
   reset_in_hours: number;
 }
 
+export interface Project {
+  id: string;
+  user_id: number;
+  title: string;
+  app_url: string | null;
+  created_at: string;
+}
+
 export interface ApiError {
   detail: string;
   status_code?: number;

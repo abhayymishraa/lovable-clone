@@ -3,6 +3,7 @@ export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  formatted?: string; // Formatted markdown content from backend
   created_at: string;
   event_type?: string;
   tool_calls?: Array<{
@@ -22,6 +23,8 @@ export interface WebSocketMessage {
   type?: string;
   e?: string;
   message?: string;
+  content?: any; // Raw content
+  formatted?: string; // Formatted markdown
   url?: string;
   app_url?: string;
   messages?: Message[];

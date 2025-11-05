@@ -13,8 +13,10 @@
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/outfit": "^5.2.8",
     "@monaco-editor/react": "^4.7.0",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.3",
     "@types/axios": "^0.9.36",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@types/uuid": "^10.0.0",
     "axios": "^1.13.1",
     "class-variance-authority": "^0.7.1",
@@ -25,6 +27,7 @@
     "react-dom": "19.2.0",
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0"

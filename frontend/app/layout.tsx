@@ -26,8 +26,31 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Lovable Clone - AI App Builder",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+  title: "WEB BUILDER AI",
   description: "Build React applications with AI",
+  icons: {
+    icon: "/logo.png",
+  },
+  openGraph: {
+    title: "WEB BUILDER AI ",
+    description: "Build applications faster with AI-powered code generation and intelligent development assistance.",
+    images: [
+      {
+        url: "/logo.png",
+        width: 1200,
+        height: 630,
+        alt: "WEB BUILDER AI Logo",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WEB BUILDER AI",
+    description: "Build applications faster with AI-powered code generation and intelligent development assistance.",
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({

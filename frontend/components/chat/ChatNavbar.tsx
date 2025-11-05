@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { UserData } from "@/api";
+import { ProjectsList } from "./ProjectsList";
 
 interface ChatNavbarProps {
   isAuthenticated: boolean;
@@ -32,6 +33,7 @@ export function ChatNavbar({
           <div className="flex gap-2">
             {isAuthenticated ? (
               <>
+                <ProjectsList />
                 <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
                   <span className="text-sm text-white/60">
                     {userData?.email}

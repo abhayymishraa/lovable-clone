@@ -182,10 +182,11 @@ export function handleWebSocketMessage(
     }
 
     // Handle thinking content
-    if (data.e === "thinking" && data.message) {
+    if (data.e === "thinking") {
       handlers.setMessages((prev) => {
         const lastMsg = prev[prev.length - 1];
-        const newContent = data.message as string;
+        const newContent = (data.message || data.content) as string;
+        const formatted = data.formatted as string | undefined;
 
         // Check if the new content looks like JSON (starts with { or contains ```json)
         const looksLikeJson =
@@ -204,6 +205,7 @@ export function handleWebSocketMessage(
             {
               ...lastMsg,
               content: lastMsg.content + separator + newContent,
+              formatted: formatted || lastMsg.formatted,
             },
           ];
         }
@@ -215,11 +217,32 @@ export function handleWebSocketMessage(
             id: Date.now().toString() + "-assistant",
             role: "assistant" as const,
             content: newContent,
+            formatted: formatted,
             created_at: new Date().toISOString(),
             event_type: data.e,
           },
         ];
       });
+      return;
+    }
+
+    // Handle planner complete (with formatted plan)
+    if (data.e === "planner_complete") {
+      const planContent = data.content || data.plan;
+      const formatted = data.formatted as string | undefined;
+      const messageContent = data.message || "Planning completed";
+
+      handlers.setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + "-plan",
+          role: "assistant" as const,
+          content: typeof planContent === "object" ? JSON.stringify(planContent, null, 2) : String(planContent),
+          formatted: formatted,
+          created_at: new Date().toISOString(),
+          event_type: "planner_complete",
+        },
+      ]);
       return;
     }
   } catch (err) {

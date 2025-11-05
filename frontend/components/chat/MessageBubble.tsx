@@ -1,5 +1,6 @@
 import { Loader2, ChevronDown, ChevronRight, Code2 } from "lucide-react";
 import { useState } from "react";
+import { FormattedMessage } from "./FormattedMessage";
 
 interface ToolCall {
   name: string;
@@ -17,6 +18,8 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  formatted?: string; // New field for formatted markdown
+  event_type?: string;
   tool_calls?: ToolCall[];
 }
 
@@ -204,7 +207,8 @@ export function MessageBubble({
     );
   }
 
-  const contentParts = formatContent(message.content);
+  // Check if we have formatted content (from backend)
+  const hasFormatted = message.formatted && message.formatted !== message.content;
 
   return (
     <div className="flex justify-start">
@@ -212,32 +216,38 @@ export function MessageBubble({
         <div className="flex items-start gap-3">
           <span className="text-lg shrink-0 mt-0.5">⚡</span>
           <div className="flex-1 min-w-0">
-            {/* Main content with formatted parts */}
-            <div className="text-sm leading-relaxed space-y-2">
-              {contentParts.map((part, i) => {
-                if (part.type === "json") {
-                  return <JsonBlock key={i} content={part.content} />;
-                } else if (part.type === "code") {
-                  return <CodeBlock key={i} content={part.content} />;
-                } else {
-                  // Split into paragraphs
-                  const paragraphs = part.content
-                    .split("\n")
-                    .filter((line) => line.trim());
+            {/* Use FormattedMessage component for formatted content */}
+            {hasFormatted ? (
+              <FormattedMessage 
+                content={message.content}
+                formatted={message.formatted}
+                type={message.event_type}
+              />
+            ) : (
+              <div className="text-sm leading-relaxed space-y-2">
+                {formatContent(message.content).map((part, i) => {
+                  if (part.type === "json") {
+                    return <JsonBlock key={i} content={part.content} />;
+                  } else if (part.type === "code") {
+                    return <CodeBlock key={i} content={part.content} />;
+                  } else {
+                    const paragraphs = part.content
+                      .split("\n")
+                      .filter((line) => line.trim());
 
-                  // If there are too many paragraphs (> 10), show summary
-                  if (paragraphs.length > 10) {
-                    return <CollapsibleText key={i} paragraphs={paragraphs} />;
+                    if (paragraphs.length > 10) {
+                      return <CollapsibleText key={i} paragraphs={paragraphs} />;
+                    }
+
+                    return paragraphs.map((line, j) => (
+                      <p key={`${i}-${j}`} className="text-white/90">
+                        {line}
+                      </p>
+                    ));
                   }
-
-                  return paragraphs.map((line, j) => (
-                    <p key={`${i}-${j}`} className="text-white/90">
-                      {line}
-                    </p>
-                  ));
-                }
-              })}
-            </div>
+                })}
+              </div>
+            )}
 
             {/* Active Tool Section - only show on last message */}
             {currentTool && isLastMessage && (

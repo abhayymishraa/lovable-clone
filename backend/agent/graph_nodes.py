@@ -2,6 +2,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from .graph_state import GraphState
 from .tools import create_tools_with_context
 from .agent import llm_gemini_pro, llm_gemini_flash
+from .formatters import create_formatted_message, format_plan_as_markdown
 import json
 import asyncio
 from langgraph.prebuilt import create_react_agent
@@ -143,15 +144,18 @@ async def planner_node(state: GraphState) -> GraphState:
 
         response = await llm_gemini_flash.ainvoke(messages)
 
+        # Format the plan preview for better display
         plan_preview = response.content[:500] if len(response.content) > 500 else response.content
+        formatted_preview = create_formatted_message("thinking", plan_preview)
+        
         if socket:
-            await safe_send_socket(socket, {"e": "thinking", "message": plan_preview})
+            await safe_send_socket(socket, formatted_preview)
 
-        # Store plan preview
+        # Store plan preview with formatting
         await store_message(
             chat_id=state.get("project_id"),
             role="assistant",
-            content=plan_preview,
+            content=formatted_preview.get("formatted", plan_preview),
             event_type="thinking"
         )
 
@@ -174,20 +178,21 @@ async def planner_node(state: GraphState) -> GraphState:
             {"node": "planner", "status": "completed", "plan": plan}
         )
 
+        # Create formatted plan message
+        formatted_plan_msg = create_formatted_message(
+            "planner_complete",
+            plan,
+            message="Planning completed successfully"
+        )
+        
         if socket:
-            await safe_send_socket(socket, 
-                {
-                    "e": "planner_complete",
-                    "plan": plan,
-                    "message": "Planning completed successfully",
-                }
-            )
+            await safe_send_socket(socket, formatted_plan_msg)
 
-        # Store plan completion
+        # Store plan completion with formatted markdown
         await store_message(
             chat_id=state.get("project_id"),
             role="assistant",
-            content=json.dumps(plan, indent=2),
+            content=formatted_plan_msg.get("formatted", json.dumps(plan, indent=2)),
             event_type="planner_complete"
         )
 

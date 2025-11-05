@@ -92,13 +92,16 @@ async def get_chat_messages(
     }
 
 
-@app.post("/chat/{id}")
+@app.post("/chat")
 async def create_project(
-    id: str,
     payload: ChatPayload,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    import uuid
+    
+    # Generate UUID on backend
+    chat_id = str(uuid.uuid4())
 
     prompt = payload.prompt
 
@@ -129,13 +132,13 @@ async def create_project(
     await db.commit()
     await db.refresh(current_user)
 
-    if id in active_runs:
+    if chat_id in active_runs:
         return JSONResponse(
             {"error": "Project is being created. Kindly wait"}, status_code=400
         )
 
     new_chat = Chat(
-        id=id,
+        id=chat_id,
         user_id=current_user.id,
         title=prompt[:100] if len(prompt) > 100 else prompt,
     )
@@ -145,23 +148,24 @@ async def create_project(
 
     async def agent_task():
         try:
-            while id not in active_sockets:
+            while chat_id not in active_sockets:
                 await asyncio.sleep(0.2)
-            socket = active_sockets[id]
-            await agent_service.run_agent_stream(prompt=prompt, id=id, socket=socket)
+            socket = active_sockets[chat_id]
+            await agent_service.run_agent_stream(prompt=prompt, id=chat_id, socket=socket)
         except Exception as e:
-            print(f"Error in agent task for project {id}: {e}")
+            print(f"Error in agent task for project {chat_id}: {e}")
             print(f"Error type: {type(e)}")
             import traceback
 
             traceback.print_exc()
         finally:
-            active_runs.pop(id, None)
+            active_runs.pop(chat_id, None)
 
-    active_runs[id] = asyncio.create_task(agent_task())
+    active_runs[chat_id] = asyncio.create_task(agent_task())
     return {
         "status": "success",
-        "message": f"Agent started for project {id}. Connect via WebSocket to see progress.",
+        "message": f"Agent started for project {chat_id}. Connect via WebSocket to see progress.",
+        "chat_id": chat_id,
         "tokens_remaining": current_user.tokens_remaining,
         "reset_in_hours": current_user.get_time_until_reset()
     }
@@ -367,6 +371,21 @@ else:
         )
 
 
+@app.get("/projects")
+async def list_user_projects(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all Projects per user"""
+    result = await db.execute(
+        select(Chat).where(Chat.user_id == current_user.id)
+    )
+    projects = result.scalars().all()
+    return {
+        "projects" : projects
+    }
+
+
 @app.websocket("/ws/{id}")
 async def ws_listener(websocket: WebSocket, id: str, token: str = None):
     """WebSocket endpoint for real-time chat communication with JWT authentication"""
@@ -423,7 +442,7 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
         return
 
     await websocket.accept()
-    print(f"WebSocket connected for project {id} by user {user_id}")
+    print(f"✅ WebSocket accepted and connected for project {id} by user {user_id}")
     active_sockets[id] = websocket
 
     # Send message history on connect
@@ -470,9 +489,12 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
                     "messages": [],
                     "app_url": chat.app_url if chat else None
                 })
+            print(f"✅ Successfully sent history for {id}")
             break
     except Exception as e:
-        print(f"Error sending message history: {e}")
+        print(f"❌ Error sending message history: {e}")
+        import traceback
+        traceback.print_exc()
         # Continue anyway, this is not critical
 
     try:
