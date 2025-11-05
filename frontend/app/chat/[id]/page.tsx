@@ -2,42 +2,25 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ArrowUp, Plus, Paperclip, ChevronLeft, Loader2, Eye, EyeOff, ChevronDown } from "lucide-react";
-import { WS_URL, API_URL } from "@/lib/utils";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  created_at: string;
-  event_type?: string;
-  url?: string;
-  status?: 'thinking' | 'processing' | 'done';
-}
-
-interface ActiveToolCall {
-  name: string;
-  status: 'running' | 'completed';
-  output?: string;
-}
-
-interface ChatInfo {
-  id: string;
-  title: string;
-  app_url: string | null;
-  created_at: string;
-}
-
-type WebSocketMessage = {
-  type?: string;
-  e?: string;
-  message?: string;
-  url?: string;
-  messages?: Message[];
-  [key: string]: any;
-};
+import { Loader2 } from "lucide-react";
+import { WS_URL } from "@/lib/utils";
+import apiClient from "@/api/client";
+import { 
+  ChatIdHeader, 
+  MessageBubble, 
+  ToolCallsDropdown, 
+  PreviewPanel, 
+  ChatInput 
+} from "@/components/chat";
+import { 
+  consolidateMessages, 
+  getAllToolCalls 
+} from "@/lib/chat-utils";
+import { 
+  handleWebSocketMessage, 
+  createWebSocketHandlers 
+} from "@/lib/websocket-handlers";
+import type { Message, ActiveToolCall } from "@/lib/chat-types";
 
 export default function ChatIdPage() {
   const params = useParams();
@@ -57,11 +40,12 @@ export default function ChatIdPage() {
   const [userData, setUserData] = useState<any>(null);
   const [currentTool, setCurrentTool] = useState<ActiveToolCall | null>(null);
   const [isCheckingUrl, setIsCheckingUrl] = useState(false);
+  const [showAllToolsDropdown, setShowAllToolsDropdown] = useState(false);
+  const [projectFiles, setProjectFiles] = useState<string[]>([]);
   
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const connectAttemptedRef = useRef(false);
   const urlCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check authentication and load initial data
@@ -82,6 +66,40 @@ export default function ChatIdPage() {
 
     loadInitialData();
   }, []);
+
+  // Function to fetch project files
+  const fetchProjectFiles = async () => {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined') {
+      console.log('❌ Not in browser environment, skipping file fetch');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        console.log('No auth token available for fetching files');
+        return;
+      }
+
+      console.log('📁 Fetching project files for:', chatId);
+      
+      const response = await apiClient.get<{
+        project_id: string;
+        files: string[];
+        sandbox_id: string;
+        sandbox_active: boolean;
+      }>(`/projects/${chatId}/files`);
+      
+      console.log('✅ Files fetched successfully:', response.data.files?.length || 0, 'files');
+      setProjectFiles(response.data.files || []);
+    } catch (error) {
+      console.error('❌ Error fetching files:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+      }
+    }
+  };
 
   // Function to check if URL is ready
   const checkUrlReady = async (url: string): Promise<boolean> => {
@@ -138,6 +156,35 @@ export default function ChatIdPage() {
     };
   }, []);
 
+  // Fetch files when appUrl becomes available
+  useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') {
+      console.log('⚠️ Not in browser, skipping file fetch setup');
+      return;
+    }
+
+    if (appUrl && chatId) {
+      // Delay initial fetch to ensure everything is ready
+      const initialTimeout = setTimeout(() => {
+        fetchProjectFiles();
+      }, 1000);
+
+      // Refetch files every 10 seconds while building
+      const interval = setInterval(() => {
+        if (isBuilding) {
+          fetchProjectFiles();
+        }
+      }, 10000);
+      
+      return () => {
+        clearTimeout(initialTimeout);
+        clearInterval(interval);
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appUrl, isBuilding, chatId]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -173,10 +220,8 @@ export default function ChatIdPage() {
     }
   }, [isDragging]);
 
-  // Removed the separate loadMessages effect since it's now handled in the auth check
-
+  // WebSocket connection setup
   useEffect(() => {
-    // WebSocket connection setup - only connect once per chatId
     const connectWebSocket = () => {
       const token = localStorage.getItem("auth_token");
       
@@ -186,153 +231,40 @@ export default function ChatIdPage() {
       }
 
       try {
-        // Include token as query parameter
         const wsUrl = `${WS_URL}/ws/${chatId}?token=${token}`;
         console.log('🔗 WebSocket URL being used:', wsUrl);
         const ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => {
-          console.log('✅ WebSocket connected for chat:', chatId);
-          setWsConnected(true);
-          setError(null);
-        };
+        // Create handlers using utility
+        const wsHandlers = createWebSocketHandlers(
+          chatId,
+          () => {
+            setWsConnected(true);
+            setError(null);
+          },
+          () => setWsConnected(false),
+          () => setWsConnected(false),
+          (event) => handleWebSocketMessage(event, {
+            setCurrentTool,
+            setIsBuilding,
+            pollUrlUntilReady,
+            setMessages,
+            setAppUrl,
+            setError,
+            setUserData,
+            consolidateMessages,
+            currentTool,
+          })
+        );
 
-        ws.onerror = (error) => {
-          console.error('❌ WebSocket error:', error);
-          setWsConnected(false);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data: WebSocketMessage = JSON.parse(event.data);
-            console.log('📨 Received WebSocket message:', data);
-            
-            // Handle tool start events - show temporary tool card (don't update message content)
-            if (data.e === 'tool_started') {
-              const toolName = data.tool_name || 'Unknown Tool';
-              setCurrentTool({
-                name: toolName,
-                status: 'running',
-              });
-              return; // Don't add to message content
-            }
-            
-            // Handle tool end events - show output briefly then hide
-            if (data.e === 'tool_completed') {
-              const toolName = data.tool_name || currentTool?.name || 'Tool';
-              const toolOutput = data.tool_output || 'Completed';
-              
-              // Show completion status briefly
-              setCurrentTool({
-                name: toolName,
-                status: 'completed',
-                output: typeof toolOutput === 'string' 
-                  ? toolOutput.substring(0, 200) 
-                  : JSON.stringify(toolOutput).substring(0, 200),
-              });
-              
-              // Hide after 2 seconds
-              setTimeout(() => {
-                setCurrentTool(null);
-              }, 2000);
-              
-              return; // Don't add to message content
-            }
-            
-            // Check if building has started
-            if (data.e === 'builder_started' || data.e === 'workflow_started') {
-              setIsBuilding(true);
-            }
-            
-            // Check if app URL is received - start health check before setting iframe
-            if (data.url) {
-              setIsBuilding(false);
-              pollUrlUntilReady(data.url); // Check URL health before displaying
-            }
-            
-            // Check if workflow completed
-            if (data.e === 'workflow_completed') {
-              setIsBuilding(false);
-              setCurrentTool(null); // Clear any remaining tool
-              
-              // Refresh user data to update token count
-              const updatedUser = localStorage.getItem("user_data");
-              if (updatedUser) {
-                setUserData(JSON.parse(updatedUser));
-              }
-            }
-            
-            // Handle initial message history
-            if (data.type === 'history' && data.messages) {
-              console.log('📜 Received message history:', data.messages.length, 'messages');
-              setMessages(data.messages);
-              return;
-            }
-            
-            if (data.type === 'error' || data.e === 'error') {
-              setError(data.message || 'An error occurred');
-            }
-            
-            // Handle token status updates
-            if (data.tokens_remaining !== undefined) {
-              const user = JSON.parse(localStorage.getItem("user_data") || '{}');
-              user.tokens_remaining = data.tokens_remaining;
-              localStorage.setItem("user_data", JSON.stringify(user));
-              setUserData(user);
-            }
-            
-            // Handle ONLY thinking content - ignore other events
-            if (data.e === 'thinking' && data.message) {
-              setMessages(prev => {
-                if (prev.length === 0) {
-                  // Create new assistant message
-                  return [...prev, {
-                    id: Date.now().toString() + '-assistant',
-                    role: 'assistant',
-                    content: data.message || '',
-                    created_at: new Date().toISOString(),
-                    event_type: data.e,
-                    status: 'thinking',
-                  }];
-                }
-                
-                const lastMsg = prev[prev.length - 1];
-                if (lastMsg.role === 'assistant') {
-                  // Append thinking to existing message
-                  return [
-                    ...prev.slice(0, -1),
-                    {
-                      ...lastMsg,
-                      content: lastMsg.content + '\n' + (data.message || ''),
-                    }
-                  ];
-                }
-                
-                // Create new message
-                return [...prev, {
-                  id: Date.now().toString() + '-assistant',
-                  role: 'assistant',
-                  content: data.message || '',
-                  created_at: new Date().toISOString(),
-                  event_type: data.e,
-                  status: 'thinking',
-                }];
-              });
-              return;
-            }
-          } catch (err) {
-            console.error('Failed to parse WebSocket message:', err);
-          }
-        };
-
-        ws.onclose = (event) => {
-          console.log('⛔ WebSocket disconnected, code:', event.code, 'reason:', event.reason);
-          setWsConnected(false);
-        };
+        ws.onopen = wsHandlers.onopen;
+        ws.onerror = wsHandlers.onerror;
+        ws.onmessage = wsHandlers.onmessage;
+        ws.onclose = wsHandlers.onclose;
 
         wsRef.current = ws;
       } catch (err) {
-        console.error('❌ Failed to create WebSocket:', err);
+        console.log("failed")
         setWsConnected(false);
       }
     };
@@ -340,8 +272,11 @@ export default function ChatIdPage() {
     connectWebSocket();
 
     return () => {
-      // Don't close on unmount - this was causing premature disconnection
-      // The server will handle cleanup
+      // Cleanup WebSocket connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, [chatId]);
 
@@ -380,43 +315,13 @@ export default function ChatIdPage() {
       />
       
       <div className="relative z-10 h-screen flex flex-col">
-        {/* Header */}
-        <div className="border-b border-white/5 backdrop-blur-md px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/chat")}
-              className="text-white/60 hover:text-white hover:bg-white/5 font-sans"
-            >
-              <ChevronLeft size={24} />
-            </Button>
-            <h1 className="font-mono font-semibold tracking-tight text-white">WEB BUILDER AI</h1>
-            <div className="flex items-center gap-2">
-              {userData && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-sm text-white/60">{userData.email}</span>
-                  <span className="text-xs text-white/40">•</span>
-                  <span className="text-sm text-white font-medium">{userData.tokens_remaining} tokens</span>
-                </div>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowPreview(!showPreview)}
-                className="text-white/60 hover:text-white hover:bg-white/5 hidden md:flex"
-              >
-                {showPreview ? <Eye size={20} /> : <EyeOff size={20} />}
-              </Button>
-              <Button 
-                className="bg-white text-black hover:bg-slate-100 text-sm font-sans"
-                onClick={() => router.push("/chat")}
-              >
-                New Chat
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ChatIdHeader
+          userData={userData}
+          showPreview={showPreview}
+          onTogglePreview={() => setShowPreview(!showPreview)}
+          onNewChat={() => router.push("/chat")}
+          onBack={() => router.push("/chat")}
+        />
 
         {/* Main Content Area */}
         <div className="flex-1 flex overflow-hidden">
@@ -444,99 +349,30 @@ export default function ChatIdPage() {
               ) : null}
               
               {messages.map((msg, index) => (
-                <div 
+                <MessageBubble
                   key={index}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {msg.role === 'user' ? (
-                    // User message
-                    <div className="max-w-xl px-4 py-3 rounded-lg bg-white text-black">
-                      <p className="text-sm">{msg.content}</p>
-                    </div>
-                  ) : (
-                    // Assistant message - single response card with tool section at bottom
-                    <div className="max-w-2xl w-full bg-white/5 text-white border border-white/10 rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-lg shrink-0 mt-0.5">⚡</span>
-                        <div className="flex-1">
-                          {/* Main thinking/response - each line separated */}
-                          <div className="text-sm leading-relaxed space-y-2">
-                            {msg.content.split('\n').filter(line => line.trim()).map((line, i) => (
-                              <p key={i}>{line}</p>
-                            ))}
-                          </div>
-                          
-                          {/* Tool Call Section - only shows when tool is active */}
-                          {currentTool && index === messages.length - 1 && (
-                            <div className="mt-4 pt-3 border-t border-white/10">
-                              <div className="bg-black/40 border border-amber-500/30 rounded-lg p-3">
-                                <div className="flex items-start gap-2">
-                                  {currentTool.status === 'running' ? (
-                                    <Loader2 size={14} className="animate-spin text-amber-400 mt-0.5" />
-                                  ) : (
-                                    <span className="text-green-400 text-sm">✓</span>
-                                  )}
-                                  <div className="flex-1">
-                                    <p className="text-xs font-mono text-amber-300 mb-1">
-                                      🔧 {currentTool.name}
-                                    </p>
-                                    {currentTool.status === 'running' ? (
-                                      <p className="text-xs text-white/50">Processing...</p>
-                                    ) : (
-                                      currentTool.output && (
-                                        <div className="text-xs text-white/60 bg-black/30 rounded p-2 mt-1 font-mono max-h-32 overflow-y-auto">
-                                          {currentTool.output}
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  message={msg}
+                  isLastMessage={index === messages.length - 1}
+                  currentTool={currentTool}
+                />
               ))}
               
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="border-t border-white/5 bg-black/40 backdrop-blur-md p-4">
-              <form onSubmit={handleSendMessage}>
-                <div className="bg-white/5 border border-white/10 rounded-lg p-3 hover:border-white/20 transition-colors">
-                  <div className="flex gap-3">
-                    <Input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Type your message..."
-                      className="flex-1 border-0 bg-transparent text-white font-sans placeholder:text-white/40 focus-visible:ring-0"
-                      disabled={!wsConnected || isBuilding}
-                    />
-                    <div className="flex items-center gap-1">
-                      <button type="button" className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white">
-                        <Plus size={18} />
-                      </button>
-                      <button type="button" className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white">
-                        <Paperclip size={18} />
-                      </button>
-                      <Button
-                        type="submit"
-                        disabled={!wsConnected || !input.trim() || isBuilding}
-                        size="icon"
-                        className="rounded-lg w-8 h-8 bg-white text-black hover:bg-slate-100"
-                      >
-                        <ArrowUp size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
+            <ToolCallsDropdown
+              toolCalls={getAllToolCalls(messages)}
+              isExpanded={showAllToolsDropdown}
+              onToggle={() => setShowAllToolsDropdown(!showAllToolsDropdown)}
+            />
+
+            <ChatInput
+              input={input}
+              wsConnected={wsConnected}
+              isBuilding={isBuilding}
+              onInputChange={setInput}
+              onSubmit={handleSendMessage}
+            />
           </div>
 
           {/* Divider */}
@@ -550,39 +386,13 @@ export default function ChatIdPage() {
 
           {/* Preview Area */}
           {showPreview && (
-            <div 
-              className="flex flex-col bg-black/50 border-l border-white/5"
-              style={{
-                width: `${previewWidth}%`,
-              }}
-            >
-              <div className="flex-1 p-6">
-                {isCheckingUrl ? (
-                  <div className="w-full h-full rounded-lg border border-white/10 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white/60 mx-auto mb-4" />
-                      <p className="text-white/60 font-sans">Checking if app is ready...</p>
-                    </div>
-                  </div>
-                ) : appUrl ? (
-                  <div className="w-full h-full rounded-lg overflow-hidden border border-white/10">
-                    <iframe
-                      src={appUrl}
-                      title="App Preview"
-                      className="w-full h-full"
-                      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-full h-full rounded-lg border border-white/10 flex items-center justify-center">
-                    <div className="text-center">
-                      <Eye className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <p className="text-white/60 font-sans">Preview will appear here</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <PreviewPanel
+              appUrl={appUrl}
+              isCheckingUrl={isCheckingUrl}
+              previewWidth={previewWidth}
+              files={projectFiles}
+              projectId={chatId}
+            />
           )}
         </div>
       </div>

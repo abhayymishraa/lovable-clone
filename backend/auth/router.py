@@ -3,7 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.models import User
 from db.base import get_db
-from .schema import UserLogin, UserResponse, UserRegister, Token, RefreshTokenRequest
+from .schema import (
+    UserLogin, UserResponse, UserRegister, Token, 
+    RefreshTokenRequest, RegisterResponse
+)
 
 from .utils import (
     verify_password,
@@ -18,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED
 )
 async def register_user(user: UserRegister, db: AsyncSession = Depends(get_db)):
     """Register a new user"""
@@ -29,17 +32,36 @@ async def register_user(user: UserRegister, db: AsyncSession = Depends(get_db)):
 
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Arguments"
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Email already registered"
         )
 
     hashed_password = get_password_hash(user.password)
     new_user = User(email=user.email, hashed_password=hashed_password, name=user.name)
 
     db.add(new_user)
-
     await db.commit()
     await db.refresh(new_user)
-    return new_user
+
+    # Create access token for the new user
+    access_token = create_access_token(data={"sub": str(new_user.id)})
+
+    # Convert the User model instance to UserResponse
+    user_response = UserResponse(
+        id=new_user.id,
+        email=new_user.email,
+        name=new_user.name,
+        created_at=new_user.created_at,
+        last_query_at=new_user.last_query_at,
+        tokens_remaining=new_user.tokens_remaining,
+        tokens_reset_at=new_user.tokens_reset_at
+    )
+
+    # Create RegisterResponse with the correct structure
+    return RegisterResponse(
+        access_token=access_token,
+        user=user_response
+    )
 
 
 @router.post("/login", response_model=Token)

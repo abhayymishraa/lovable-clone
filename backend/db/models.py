@@ -1,8 +1,8 @@
 from .base import Base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
-from sqlalchemy import Integer, String, DateTime, ForeignKey
+from sqlalchemy import Integer, String, DateTime, ForeignKey, Text, JSON
 
 
 class User(Base):
@@ -23,6 +23,12 @@ class User(Base):
     last_query_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
+    
+    # Token/Credits system - users get 2 tokens per day
+    tokens_remaining: Mapped[int] = mapped_column(Integer, default=2)
+    tokens_reset_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
     # A User can have many Chats.
     # back_populates="user" links back to the user field in the Chat model.
@@ -32,16 +38,41 @@ class User(Base):
     )
 
     def can_make_query(self) -> bool:
-        """Check if user can make a query based on rate limiting"""
-
+        """Check if user can make a query based on rate limiting and tokens"""
+        # Special user gets unlimited access
         if self.email == "grabhaymishra@gmail.com":
             return True
 
-        if self.last_query_at is None:
+        # Check if we need to reset tokens (24 hours passed)
+        if self.tokens_reset_at is None or datetime.now(timezone.utc) >= self.tokens_reset_at:
+            # Reset tokens
+            self.tokens_remaining = 2
+            self.tokens_reset_at = datetime.now(timezone.utc) + timedelta(hours=24)
             return True
+        
+        return self.tokens_remaining > 0
 
-        time_since_last_query = datetime.now(timezone.utc) - self.last_query_at
-        return time_since_last_query.total_seconds() >= 86400  # 24 hours in seconds
+    def use_token(self) -> bool:
+        """Use one token and return True if successful, False if no tokens left"""
+        if self.email == "grabhaymishra@gmail.com":
+            return True 
+        
+        if self.tokens_reset_at is None or datetime.now(timezone.utc) >= self.tokens_reset_at:
+            self.tokens_remaining = 2
+            self.tokens_reset_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        
+        if self.tokens_remaining > 0:
+            self.tokens_remaining -= 1
+            self.last_query_at = datetime.now(timezone.utc)
+            return True
+        return False
+    
+    def get_time_until_reset(self) -> float:
+        """Get hours until token reset"""
+        if self.tokens_reset_at is None:
+            return 0
+        time_diff = self.tokens_reset_at - datetime.now(timezone.utc)
+        return max(0, time_diff.total_seconds() / 3600)
 
     def update_last_query(self):
         """Update the last query timestamp"""
@@ -56,9 +87,32 @@ class Chat(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE")
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
+    app_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     user: Mapped["User"] = relationship("User", back_populates="chats")
+    messages: Mapped[List["Message"]] = relationship(
+        "Message", back_populates="chat", cascade="all, delete-orphan", order_by="Message.created_at"
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    chat_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("chats.id", ondelete="CASCADE")
+    )
+    role: Mapped[str] = mapped_column(String(50))  # 'user' or 'assistant'
+    content: Mapped[str] = mapped_column(Text)  # Use Text for unlimited size
+    event_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # For system events like 'builder_started'
+    tool_calls: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # Store tool calls as JSON: [{name: str, status: 'success'|'error', output: str}]
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    chat: Mapped["Chat"] = relationship("Chat", back_populates="messages")

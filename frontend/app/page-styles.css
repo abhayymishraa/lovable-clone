@@ -1,0 +1,267 @@
+/* Custom styles for the landing page only */
+.landing-page-wrapper {
+  /* Typography - Outfit font */
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  
+  /* Letter Spacing */
+  letter-spacing: 0.025em;
+  
+  /* Shadow Configuration */
+  --shadow-color: rgba(0, 0, 0, 0.17);
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 1px;
+  
+  /* Border Radius */
+  --custom-radius: 0.5rem;
+  
+  /* Spacing */
+  --custom-spacing: 0.25rem;
+  
+  /* Color Template - Custom Color Scheme */
+  /* Primary Colors */
+  --landing-primary: #737373;
+  --landing-primary-foreground: #fafafa;
+  
+  /* Secondary Colors */
+  --landing-secondary: #262626;
+  --landing-secondary-foreground: #fafafa;
+  
+  /* Accent Colors */
+  --landing-accent: #404040;
+  --landing-accent-foreground: #fafafa;
+  
+  /* Base Colors */
+  --landing-background: #0a0a0a;
+  --landing-foreground: #fafafa;
+  
+  /* Card Colors */
+  --landing-card: #191919;
+  --landing-card-foreground: #fafafa;
+  
+  /* Popover Colors */
+  --landing-popover: #262626;
+  --landing-popover-foreground: #fafafa;
+  
+  /* Muted Colors */
+  --landing-muted: #262626;
+  --landing-muted-foreground: #a1a1a1;
+  
+  /* Destructive Colors */
+  --landing-destructive: #ff6467;
+  --landing-destructive-foreground: #262626;
+  
+  /* Border & Input Colors */
+  --landing-border: #383838;
+  --landing-input: #525252;
+  --landing-ring: #737373;
+  
+  /* Sidebar Colors */
+  --landing-sidebar: #171717;
+  --landing-sidebar-foreground: #fafafa;
+  --landing-sidebar-primary: #fafafa;
+  --landing-sidebar-primary-foreground: #171717;
+  --landing-sidebar-accent: #262626;
+  --landing-sidebar-accent-foreground: #fafafa;
+  --landing-sidebar-border: #ffffff;
+  
+  /* Apply colors - background is now transparent to show radial gradient */
+  background-color: transparent;
+  color: var(--landing-foreground);
+}
+
+/* Apply shadow to elements in the landing page */
+.landing-page-wrapper .shadow-custom,
+.landing-page-wrapper button,
+.landing-page-wrapper .border {
+  box-shadow: var(--shadow-offset-x) var(--shadow-offset-y) var(--shadow-blur) var(--shadow-spread) var(--shadow-color);
+}
+
+/* Apply custom radius */
+.landing-page-wrapper .rounded-lg,
+.landing-page-wrapper .rounded-xl,
+.landing-page-wrapper .rounded-2xl {
+  border-radius: var(--custom-radius);
+}
+
+.landing-page-wrapper .rounded-full {
+  border-radius: 9999px;
+}
+
+/* Typography styles with Outfit */
+.landing-page-wrapper h1,
+.landing-page-wrapper h2,
+.landing-page-wrapper h3,
+.landing-page-wrapper h4,
+.landing-page-wrapper h5,
+.landing-page-wrapper h6 {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.025em;
+}
+
+/* Body text */
+.landing-page-wrapper p,
+.landing-page-wrapper span,
+.landing-page-wrapper div {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.025em;
+}
+
+/* Button styles */
+.landing-page-wrapper button {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.025em;
+}
+
+/* Color Utilities for Landing Page */
+
+/* Text Colors */
+.landing-page-wrapper .text-muted-foreground {
+  color: var(--landing-muted-foreground);
+}
+
+.landing-page-wrapper .text-primary {
+  color: var(--landing-primary);
+}
+
+/* Background Colors */
+.landing-page-wrapper .bg-card {
+  background-color: var(--landing-card);
+}
+
+.landing-page-wrapper .bg-secondary {
+  background-color: var(--landing-secondary);
+}
+
+.landing-page-wrapper .bg-accent {
+  background-color: var(--landing-accent);
+}
+
+.landing-page-wrapper .bg-muted {
+  background-color: var(--landing-muted);
+}
+
+/* Border Colors */
+.landing-page-wrapper .border-border,
+.landing-page-wrapper .border {
+  border-color: var(--landing-border);
+}
+
+/* Override neutral colors with custom palette */
+.landing-page-wrapper .text-neutral-400,
+.landing-page-wrapper .text-neutral-500 {
+  color: var(--landing-muted-foreground);
+}
+
+.landing-page-wrapper .text-neutral-600,
+.landing-page-wrapper .text-neutral-700 {
+  color: var(--landing-primary);
+}
+
+.landing-page-wrapper .bg-neutral-900 {
+  background-color: var(--landing-card);
+}
+
+.landing-page-wrapper .bg-neutral-800 {
+  background-color: var(--landing-secondary);
+}
+
+.landing-page-wrapper .border-neutral-700,
+.landing-page-wrapper .border-neutral-800 {
+  border-color: var(--landing-border);
+}
+
+/* Card hover effects */
+.landing-page-wrapper .hover\:bg-neutral-900:hover {
+  background-color: var(--landing-card);
+}
+
+.landing-page-wrapper .hover\:bg-neutral-900\/50:hover {
+  background-color: rgb(25 25 25 / 0.5);
+}
+
+/* Primary button styles */
+.landing-page-wrapper button.bg-gradient-to-r {
+  background: linear-gradient(to right, var(--landing-primary), var(--landing-accent));
+  color: var(--landing-primary-foreground);
+}
+
+.landing-page-wrapper button.bg-gradient-to-r:hover {
+  opacity: 0.9;
+}
+
+/* Accent colors for icons and highlights */
+.landing-page-wrapper .text-blue-400 {
+  color: var(--landing-primary);
+}
+
+.landing-page-wrapper .text-purple-400,
+.landing-page-wrapper .text-purple-500 {
+  color: var(--landing-accent);
+}
+
+.landing-page-wrapper .bg-blue-500 {
+  background-color: var(--landing-primary);
+}
+
+.landing-page-wrapper .bg-purple-500,
+.landing-page-wrapper .bg-pink-500 {
+  background-color: var(--landing-accent);
+}
+
+.landing-page-wrapper .bg-green-500 {
+  background-color: var(--landing-ring);
+}
+
+.landing-page-wrapper .border-blue-500\/30 {
+  border-color: rgb(115 115 115 / 0.3);
+}
+
+/* Gradient backgrounds with custom colors */
+.landing-page-wrapper .from-blue-500\/20 {
+  --tw-gradient-from: rgb(115 115 115 / 0.2);
+  --tw-gradient-to: rgb(115 115 115 / 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.landing-page-wrapper .to-purple-500\/20 {
+  --tw-gradient-to: rgb(64 64 64 / 0.2);
+}
+
+.landing-page-wrapper .from-blue-400 {
+  --tw-gradient-from: var(--landing-primary);
+  --tw-gradient-to: rgb(115 115 115 / 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.landing-page-wrapper .to-purple-400,
+.landing-page-wrapper .to-purple-600 {
+  --tw-gradient-to: var(--landing-accent);
+}
+
+.landing-page-wrapper .from-blue-600 {
+  --tw-gradient-from: var(--landing-primary);
+  --tw-gradient-to: rgb(115 115 115 / 0);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.landing-page-wrapper .from-blue-500 {
+  --tw-gradient-from: var(--landing-primary);
+}
+
+.landing-page-wrapper .to-purple-500 {
+  --tw-gradient-to: var(--landing-accent);
+}
+
+.landing-page-wrapper .hover\:from-blue-500:hover {
+  --tw-gradient-from: var(--landing-primary);
+}
+
+.landing-page-wrapper .hover\:to-purple-500:hover {
+  --tw-gradient-to: var(--landing-accent);
+}
+
+.landing-page-wrapper .from-blue-400.to-purple-600 {
+  background: linear-gradient(to bottom right, var(--landing-primary), var(--landing-accent));
+}
