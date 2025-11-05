@@ -1,14 +1,19 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { v4 } from 'uuid';
 import { authApi, chatApi, type UserData } from "@/api";
-import { ChatNavbar, ChatInputBox, StatusBadge, PromotionBanner } from "@/components/chat";
+import {
+  ChatNavbar,
+  ChatInputBox,
+  StatusBadge,
+  PromotionBanner,
+} from "@/components/chat";
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userData, setUserData] = useState<UserData | null>(null);
   const router = useRouter();
@@ -29,17 +34,18 @@ export default function ChatPage() {
       try {
         const parsed: UserData = JSON.parse(user);
         setUserData(parsed);
-        
+
         // Fetch fresh user data from API to get updated token count
-        authApi.getCurrentUser()
-          .then(freshData => {
-            console.log('🔄 Refreshed user data:', freshData);
+        authApi
+          .getCurrentUser()
+          .then((freshData) => {
+            console.log("🔄 Refreshed user data:", freshData);
             const updatedUser = { ...parsed, ...freshData };
             localStorage.setItem("user_data", JSON.stringify(updatedUser));
             setUserData(updatedUser);
           })
-          .catch(err => {
-            console.error('Failed to fetch fresh user data:', err);
+          .catch((err) => {
+            console.error("Failed to fetch fresh user data:", err);
           });
       } catch (err) {
         console.warn("Invalid user_data in localStorage, clearing.", err);
@@ -58,25 +64,17 @@ export default function ChatPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      router.push("/signin");
-      return;
-    }
+    if (!input.trim() || isLoading) return;
 
     setIsLoading(true);
-    try {
-      const chatId = v4();
-      
-      // Call the createChat API with the user's prompt
-      await chatApi.createChat(chatId, input.trim());
+    setError("");
 
-      router.push(`/chat/${chatId}`);
-    } catch (error: unknown) {
-      console.error("Error creating chat:", error);
-      alert(error instanceof Error ? error.message : "Failed to create chat");
+    try {
+      const response = await chatApi.createChat(input.trim());
+      router.push(`/chat/${response.chat_id}`);
+    } catch (err) {
+      console.error("Error creating chat:", err);
+      setError("Failed to create chat. Please try again.");
       setIsLoading(false);
     }
   };
@@ -86,11 +84,12 @@ export default function ChatPage() {
       <div
         className="absolute inset-0 z-0"
         style={{
-          background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(226, 232, 240, 0.15), transparent 70%), #000000",
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(226, 232, 240, 0.15), transparent 70%), #000000",
         }}
       />
 
-      <ChatNavbar 
+      <ChatNavbar
         isAuthenticated={isAuthenticated}
         userData={userData}
         onSignOut={handleSignOut}
@@ -100,16 +99,24 @@ export default function ChatPage() {
         <StatusBadge />
 
         <div className="mb-12">
-          <h1 className="text-5xl font-semibold text-white text-center tracking-tight">WEB BUILDER AI</h1>
+          <h1 className="text-5xl font-semibold text-white text-center tracking-tight">
+            WEB BUILDER AI
+          </h1>
         </div>
 
         <div className="w-full max-w-2xl">
-          <ChatInputBox 
+          <ChatInputBox
             input={input}
             isLoading={isLoading}
             onInputChange={setInput}
             onSubmit={handleSubmit}
           />
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm text-center">
+              {error}
+            </div>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-sm text-white/50">

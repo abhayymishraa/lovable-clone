@@ -9,7 +9,12 @@ interface ChatInputBoxProps {
   onSubmit: (e: React.FormEvent) => void;
 }
 
-export function ChatInputBox({ input, isLoading, onInputChange, onSubmit }: ChatInputBoxProps) {
+export function ChatInputBox({
+  input,
+  isLoading,
+  onInputChange,
+  onSubmit,
+}: ChatInputBoxProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-sm hover:border-white/20 transition-colors">
@@ -24,13 +29,13 @@ export function ChatInputBox({ input, isLoading, onInputChange, onSubmit }: Chat
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
           <div className="flex items-center gap-2">
-            <button 
+            <button
               type="button"
               className="p-2 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
             >
               <Plus size={20} />
             </button>
-            <button 
+            <button
               type="button"
               className="p-2 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
             >
@@ -44,7 +49,7 @@ export function ChatInputBox({ input, isLoading, onInputChange, onSubmit }: Chat
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               type="button"
               className="p-2 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
             >

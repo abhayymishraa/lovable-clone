@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import type React from "react";
 import { useState } from "react";
@@ -24,7 +24,7 @@ export default function SignInPage() {
     try {
       // Call the login API
       const data = await authApi.login({ email, password });
-      
+
       // Validate response data
       if (!data.access_token) {
         throw new Error("No access token received");
@@ -32,7 +32,7 @@ export default function SignInPage() {
 
       // Store token in localStorage
       localStorage.setItem("auth_token", data.access_token);
-      
+
       // Fetch user data after login since login doesn't return it
       try {
         const userData = await authApi.getCurrentUser();
@@ -65,18 +65,24 @@ export default function SignInPage() {
       <div
         className="absolute inset-0 z-0"
         style={{
-          background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(226, 232, 240, 0.15), transparent 70%), #000000",
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(226, 232, 240, 0.15), transparent 70%), #000000",
         }}
       />
 
       <nav className="relative z-20 border-b border-white/5 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/chat" className="text-white font-semibold text-lg hover:opacity-80 transition">
+          <Link
+            href="/chat"
+            className="text-white font-semibold text-lg hover:opacity-80 transition"
+          >
             WEB BUILDER
           </Link>
           <div className="flex items-center gap-2">
             <Link href="/signup">
-              <Button className="bg-white text-black hover:bg-slate-100">Sign Up</Button>
+              <Button className="bg-white text-black hover:bg-slate-100">
+                Sign Up
+              </Button>
             </Link>
           </div>
         </div>
@@ -85,14 +91,19 @@ export default function SignInPage() {
       <div className="relative z-10 min-h-[calc(100vh-60px)] flex flex-col items-center justify-center px-4">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h1 className="text-4xl font-semibold text-white mb-2">Welcome back</h1>
+            <h1 className="text-4xl font-semibold text-white mb-2">
+              Welcome back
+            </h1>
             <p className="text-white/60">Sign in to your account to continue</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm text-white/80 mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm text-white/80 mb-2"
+                >
                   Email
                 </label>
                 <Input
@@ -108,7 +119,10 @@ export default function SignInPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm text-white/80 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm text-white/80 mb-2"
+                >
                   Password
                 </label>
                 <Input
@@ -148,7 +162,10 @@ export default function SignInPage() {
 
             <div className="mt-6 text-center text-sm text-white/60">
               Don't have an account?{" "}
-              <Link href="/signup" className="text-white hover:underline font-medium">
+              <Link
+                href="/signup"
+                className="text-white hover:underline font-medium"
+              >
                 Sign Up
               </Link>
             </div>

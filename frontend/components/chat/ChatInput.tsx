@@ -10,7 +10,13 @@ interface ChatInputProps {
   onSubmit: (e: React.FormEvent) => void;
 }
 
-export function ChatInput({ input, wsConnected, isBuilding, onInputChange, onSubmit }: ChatInputProps) {
+export function ChatInput({
+  input,
+  wsConnected,
+  isBuilding,
+  onInputChange,
+  onSubmit,
+}: ChatInputProps) {
   return (
     <div className="border-t border-white/5 bg-black/40 backdrop-blur-md p-4">
       <form onSubmit={onSubmit}>
@@ -25,14 +31,14 @@ export function ChatInput({ input, wsConnected, isBuilding, onInputChange, onSub
               disabled={!wsConnected || isBuilding}
             />
             <div className="flex items-center gap-1">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white"
               >
                 <Plus size={18} />
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white"
               >
                 <Paperclip size={18} />

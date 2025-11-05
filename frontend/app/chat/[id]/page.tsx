@@ -1,24 +1,21 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { WS_URL } from "@/lib/utils";
 import apiClient from "@/api/client";
-import { 
-  ChatIdHeader, 
-  MessageBubble, 
-  ToolCallsDropdown, 
-  PreviewPanel, 
-  ChatInput 
+import {
+  ChatIdHeader,
+  MessageBubble,
+  ToolCallsDropdown,
+  PreviewPanel,
+  ChatInput,
 } from "@/components/chat";
-import { 
-  consolidateMessages, 
-  getAllToolCalls 
-} from "@/lib/chat-utils";
-import { 
-  handleWebSocketMessage, 
-  createWebSocketHandlers 
+import { consolidateMessages, getAllToolCalls } from "@/lib/chat-utils";
+import {
+  handleWebSocketMessage,
+  createWebSocketHandlers,
 } from "@/lib/websocket-handlers";
 import type { Message, ActiveToolCall } from "@/lib/chat-types";
 
@@ -26,11 +23,11 @@ export default function ChatIdPage() {
   const params = useParams();
   const router = useRouter();
   const chatId = params.id as string;
-  
+
   const [wsConnected, setWsConnected] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [appUrl, setAppUrl] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
@@ -42,7 +39,7 @@ export default function ChatIdPage() {
   const [isCheckingUrl, setIsCheckingUrl] = useState(false);
   const [showAllToolsDropdown, setShowAllToolsDropdown] = useState(false);
   const [projectFiles, setProjectFiles] = useState<string[]>([]);
-  
+
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,15 +49,15 @@ export default function ChatIdPage() {
   useEffect(() => {
     const loadInitialData = async () => {
       const user = localStorage.getItem("user_data");
-      
+
       if (user) {
         try {
           setUserData(JSON.parse(user));
         } catch (err) {
-          console.error('Failed to parse user data:', err);
+          console.error("Failed to parse user data:", err);
         }
       }
-      
+
       setIsLoading(false);
     };
 
@@ -70,33 +67,37 @@ export default function ChatIdPage() {
   // Function to fetch project files
   const fetchProjectFiles = async () => {
     // Check if we're in a browser environment
-    if (typeof window === 'undefined') {
-      console.log('❌ Not in browser environment, skipping file fetch');
+    if (typeof window === "undefined") {
+      console.log("❌ Not in browser environment, skipping file fetch");
       return;
     }
 
     try {
       const token = localStorage.getItem("auth_token");
       if (!token) {
-        console.log('No auth token available for fetching files');
+        console.log("No auth token available for fetching files");
         return;
       }
 
-      console.log('📁 Fetching project files for:', chatId);
-      
+      console.log("📁 Fetching project files for:", chatId);
+
       const response = await apiClient.get<{
         project_id: string;
         files: string[];
         sandbox_id: string;
         sandbox_active: boolean;
       }>(`/projects/${chatId}/files`);
-      
-      console.log('✅ Files fetched successfully:', response.data.files?.length || 0, 'files');
+
+      console.log(
+        "✅ Files fetched successfully:",
+        response.data.files?.length || 0,
+        "files",
+      );
       setProjectFiles(response.data.files || []);
     } catch (error) {
-      console.error('❌ Error fetching files:', error);
+      console.error("❌ Error fetching files:", error);
       if (error instanceof Error) {
-        console.error('Error message:', error.message);
+        console.error("Error message:", error.message);
       }
     }
   };
@@ -104,14 +105,14 @@ export default function ChatIdPage() {
   // Function to check if URL is ready
   const checkUrlReady = async (url: string): Promise<boolean> => {
     try {
-      const response = await fetch(url, { 
-        method: 'HEAD',
-        mode: 'no-cors' // This will prevent CORS errors
+      const response = await fetch(url, {
+        method: "HEAD",
+        mode: "no-cors", // This will prevent CORS errors
       });
       // With no-cors, we can't read the status, but if it doesn't throw, it's accessible
       return true;
     } catch (error) {
-      console.log('URL not ready yet:', error);
+      console.log("URL not ready yet:", error);
       return false;
     }
   };
@@ -119,31 +120,31 @@ export default function ChatIdPage() {
   // Poll URL until it's ready
   const pollUrlUntilReady = async (url: string) => {
     setIsCheckingUrl(true);
-    console.log('🔍 Starting URL health check for:', url);
-    
+    console.log("🔍 Starting URL health check for:", url);
+
     let attempts = 0;
     const maxAttempts = 20; // 20 attempts over ~20 seconds
-    
+
     const checkInterval = setInterval(async () => {
       attempts++;
       console.log(`⏱️ Health check attempt ${attempts}/${maxAttempts}`);
-      
+
       const isReady = await checkUrlReady(url);
-      
+
       if (isReady || attempts >= maxAttempts) {
         clearInterval(checkInterval);
         setIsCheckingUrl(false);
-        
+
         if (isReady) {
-          console.log('✅ URL is ready, setting iframe');
+          console.log("✅ URL is ready, setting iframe");
           setAppUrl(url);
         } else {
-          console.log('⚠️ Max attempts reached, setting iframe anyway');
+          console.log("⚠️ Max attempts reached, setting iframe anyway");
           setAppUrl(url);
         }
       }
     }, 1000); // Check every 1 second
-    
+
     urlCheckIntervalRef.current = checkInterval;
   };
 
@@ -159,8 +160,8 @@ export default function ChatIdPage() {
   // Fetch files when appUrl becomes available
   useEffect(() => {
     // Only run in browser environment
-    if (typeof window === 'undefined') {
-      console.log('⚠️ Not in browser, skipping file fetch setup');
+    if (typeof window === "undefined") {
+      console.log("⚠️ Not in browser, skipping file fetch setup");
       return;
     }
 
@@ -176,7 +177,7 @@ export default function ChatIdPage() {
           fetchProjectFiles();
         }
       }, 10000);
-      
+
       return () => {
         clearTimeout(initialTimeout);
         clearInterval(interval);
@@ -186,7 +187,7 @@ export default function ChatIdPage() {
   }, [appUrl, isBuilding, chatId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // Handle drag resize
@@ -210,12 +211,12 @@ export default function ChatIdPage() {
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
 
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
       };
     }
   }, [isDragging]);
@@ -223,50 +224,60 @@ export default function ChatIdPage() {
   // WebSocket connection setup
   useEffect(() => {
     const connectWebSocket = () => {
-      const token = localStorage.getItem("auth_token");
-      
-      if (!token) {
-        console.log('No token available for WebSocket connection');
+      // Prevent duplicate connections
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        console.log("⚠️ WebSocket already connected, skipping...");
         return;
       }
 
-      try {
-        const wsUrl = `${WS_URL}/ws/${chatId}?token=${token}`;
-        console.log('🔗 WebSocket URL being used:', wsUrl);
-        const ws = new WebSocket(wsUrl);
+      const token = localStorage.getItem("auth_token");
 
-        // Create handlers using utility
-        const wsHandlers = createWebSocketHandlers(
-          chatId,
-          () => {
-            setWsConnected(true);
-            setError(null);
-          },
-          () => setWsConnected(false),
-          () => setWsConnected(false),
-          (event) => handleWebSocketMessage(event, {
-            setCurrentTool,
-            setIsBuilding,
-            pollUrlUntilReady,
-            setMessages,
-            setAppUrl,
-            setError,
-            setUserData,
-            consolidateMessages,
-            currentTool,
-          })
-        );
-
-        ws.onopen = wsHandlers.onopen;
-        ws.onerror = wsHandlers.onerror;
-        ws.onmessage = wsHandlers.onmessage;
-        ws.onclose = wsHandlers.onclose;
-
-        wsRef.current = ws;
-      } catch (err) {
-        console.log("failed")
-        setWsConnected(false);
+      if (!token) {
+        console.log("No token available for WebSocket connection");
+        return;
       }
+
+      // Small delay to ensure backend is ready
+      setTimeout(() => {
+        try {
+          const wsUrl = `${WS_URL}/ws/${chatId}?token=${token}`;
+          console.log("🔗 WebSocket URL being used:", wsUrl);
+          const ws = new WebSocket(wsUrl);
+
+          // Create handlers using utility
+          const wsHandlers = createWebSocketHandlers(
+            chatId,
+            () => {
+              setWsConnected(true);
+              setError(null);
+            },
+            () => setWsConnected(false),
+            () => setWsConnected(false),
+            (event) =>
+              handleWebSocketMessage(event, {
+                setCurrentTool,
+                setIsBuilding,
+                pollUrlUntilReady,
+                setMessages,
+                setAppUrl,
+                setError,
+                setUserData,
+                consolidateMessages,
+                currentTool,
+              }),
+          );
+
+          ws.onopen = wsHandlers.onopen;
+          ws.onerror = wsHandlers.onerror;
+          ws.onmessage = wsHandlers.onmessage;
+          ws.onclose = wsHandlers.onclose;
+
+          wsRef.current = ws;
+        } catch (err) {
+          console.log("WebSocket connection failed:", err);
+          setWsConnected(false);
+        }
+      }, 100); // 100ms delay
     };
 
     connectWebSocket();
@@ -274,6 +285,7 @@ export default function ChatIdPage() {
     return () => {
       // Cleanup WebSocket connection
       if (wsRef.current) {
+        console.log("🧹 Cleaning up WebSocket connection");
         wsRef.current.close();
         wsRef.current = null;
       }
@@ -293,19 +305,22 @@ export default function ChatIdPage() {
 
     // Send message through WebSocket
     const message = {
-      type: 'chat_message',
-      prompt: input.trim()
+      type: "chat_message",
+      prompt: input.trim(),
     };
     wsRef.current.send(JSON.stringify(message));
 
     // Add user message to chat
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    setInput("");
     setIsBuilding(true); // Immediately show building state
   };
 
   return (
-    <div className="min-h-screen w-full bg-black relative overflow-hidden" ref={containerRef}>
+    <div
+      className="min-h-screen w-full bg-black relative overflow-hidden"
+      ref={containerRef}
+    >
       <div
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
@@ -313,7 +328,7 @@ export default function ChatIdPage() {
             "radial-gradient(ellipse 50% 100% at 10% 0%, rgba(226, 232, 240, 0.15), transparent 65%), #000000",
         }}
       />
-      
+
       <div className="relative z-10 h-screen flex flex-col">
         <ChatIdHeader
           userData={userData}
@@ -347,7 +362,7 @@ export default function ChatIdPage() {
                   {error}
                 </div>
               ) : null}
-              
+
               {messages.map((msg, index) => (
                 <MessageBubble
                   key={index}
@@ -356,7 +371,7 @@ export default function ChatIdPage() {
                   currentTool={currentTool}
                 />
               ))}
-              
+
               <div ref={messagesEndRef} />
             </div>
 

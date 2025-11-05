@@ -1,4 +1,4 @@
-import type { Message } from './chat-types';
+import type { Message } from "./chat-types";
 
 /**
  * Consolidates consecutive assistant messages into single cards
@@ -10,20 +10,20 @@ export function consolidateMessages(msgs: Message[]): Message[] {
 
   // Event types that should be consolidated into assistant messages
   const assistantEventTypes = [
-    'thinking',
-    'tool_started',
-    'tool_completed',
-    'planner_complete',
-    'builder_complete',
-    'validator_complete'
+    "thinking",
+    "tool_started",
+    "tool_completed",
+    "planner_complete",
+    "builder_complete",
+    "validator_complete",
   ];
 
   // Event types that should be filtered out (wrapper events with no content)
-  const filterOutEvents = ['started', 'completed'];
+  const filterOutEvents = ["started", "completed"];
 
   for (const msg of msgs) {
     // Handle user messages - always push and close any assistant group
-    if (msg.role === 'user') {
+    if (msg.role === "user") {
       if (currentAssistantGroup) {
         consolidated.push(currentAssistantGroup);
         currentAssistantGroup = null;
@@ -33,7 +33,7 @@ export function consolidateMessages(msgs: Message[]): Message[] {
     }
 
     // Handle assistant messages
-    if (msg.role === 'assistant') {
+    if (msg.role === "assistant") {
       // Skip wrapper events with no real content
       if (msg.event_type && filterOutEvents.includes(msg.event_type)) {
         continue;
@@ -44,7 +44,7 @@ export function consolidateMessages(msgs: Message[]): Message[] {
         if (currentAssistantGroup) {
           // Append to current group
           if (msg.content && msg.content.trim()) {
-            currentAssistantGroup.content += '\n' + msg.content;
+            currentAssistantGroup.content += "\n" + msg.content;
           }
           // Merge tool_calls if they exist
           if (msg.tool_calls && msg.tool_calls.length > 0) {
@@ -55,9 +55,9 @@ export function consolidateMessages(msgs: Message[]): Message[] {
           }
         } else {
           // Start new assistant group
-          currentAssistantGroup = { 
+          currentAssistantGroup = {
             ...msg,
-            event_type: 'thinking' // Normalize event type for display
+            event_type: "thinking", // Normalize event type for display
           };
         }
       } else {
@@ -85,15 +85,15 @@ export function consolidateMessages(msgs: Message[]): Message[] {
 export function getAllToolCalls(messages: Message[]) {
   const allTools: Array<{
     name: string;
-    status: 'success' | 'error' | 'running';
+    status: "success" | "error" | "running";
     output?: string;
   }> = [];
-  
-  messages.forEach(msg => {
+
+  messages.forEach((msg) => {
     if (msg.tool_calls && msg.tool_calls.length > 0) {
       allTools.push(...msg.tool_calls);
     }
   });
-  
+
   return allTools;
 }

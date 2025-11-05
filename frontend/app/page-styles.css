@@ -2,61 +2,61 @@
 .landing-page-wrapper {
   /* Typography - Outfit font */
   font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
-  
+
   /* Letter Spacing */
   letter-spacing: 0.025em;
-  
+
   /* Shadow Configuration */
   --shadow-color: rgba(0, 0, 0, 0.17);
   --shadow-blur: 3px;
   --shadow-spread: 0px;
   --shadow-offset-x: 0px;
   --shadow-offset-y: 1px;
-  
+
   /* Border Radius */
   --custom-radius: 0.5rem;
-  
+
   /* Spacing */
   --custom-spacing: 0.25rem;
-  
+
   /* Color Template - Custom Color Scheme */
   /* Primary Colors */
   --landing-primary: #737373;
   --landing-primary-foreground: #fafafa;
-  
+
   /* Secondary Colors */
   --landing-secondary: #262626;
   --landing-secondary-foreground: #fafafa;
-  
+
   /* Accent Colors */
   --landing-accent: #404040;
   --landing-accent-foreground: #fafafa;
-  
+
   /* Base Colors */
   --landing-background: #0a0a0a;
   --landing-foreground: #fafafa;
-  
+
   /* Card Colors */
   --landing-card: #191919;
   --landing-card-foreground: #fafafa;
-  
+
   /* Popover Colors */
   --landing-popover: #262626;
   --landing-popover-foreground: #fafafa;
-  
+
   /* Muted Colors */
   --landing-muted: #262626;
   --landing-muted-foreground: #a1a1a1;
-  
+
   /* Destructive Colors */
   --landing-destructive: #ff6467;
   --landing-destructive-foreground: #262626;
-  
+
   /* Border & Input Colors */
   --landing-border: #383838;
   --landing-input: #525252;
   --landing-ring: #737373;
-  
+
   /* Sidebar Colors */
   --landing-sidebar: #171717;
   --landing-sidebar-foreground: #fafafa;
@@ -65,7 +65,7 @@
   --landing-sidebar-accent: #262626;
   --landing-sidebar-accent-foreground: #fafafa;
   --landing-sidebar-border: #ffffff;
-  
+
   /* Apply colors - background is now transparent to show radial gradient */
   background-color: transparent;
   color: var(--landing-foreground);
@@ -75,7 +75,8 @@
 .landing-page-wrapper .shadow-custom,
 .landing-page-wrapper button,
 .landing-page-wrapper .border {
-  box-shadow: var(--shadow-offset-x) var(--shadow-offset-y) var(--shadow-blur) var(--shadow-spread) var(--shadow-color);
+  box-shadow: var(--shadow-offset-x) var(--shadow-offset-y) var(--shadow-blur)
+    var(--shadow-spread) var(--shadow-color);
 }
 
 /* Apply custom radius */
@@ -183,7 +184,11 @@
 
 /* Primary button styles */
 .landing-page-wrapper button.bg-gradient-to-r {
-  background: linear-gradient(to right, var(--landing-primary), var(--landing-accent));
+  background: linear-gradient(
+    to right,
+    var(--landing-primary),
+    var(--landing-accent)
+  );
   color: var(--landing-primary-foreground);
 }
 
@@ -263,5 +268,9 @@
 }
 
 .landing-page-wrapper .from-blue-400.to-purple-600 {
-  background: linear-gradient(to bottom right, var(--landing-primary), var(--landing-accent));
+  background: linear-gradient(
+    to bottom right,
+    var(--landing-primary),
+    var(--landing-accent)
+  );
 }

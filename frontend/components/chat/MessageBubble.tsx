@@ -3,13 +3,13 @@ import { useState } from "react";
 
 interface ToolCall {
   name: string;
-  status: 'success' | 'error' | 'running';
+  status: "success" | "error" | "running";
   output?: string;
 }
 
 interface ActiveToolCall {
   name: string;
-  status: 'running' | 'completed';
+  status: "running" | "completed";
   output?: string;
 }
 
@@ -28,78 +28,83 @@ interface MessageBubbleProps {
 
 // Helper to detect and format JSON
 function formatContent(content: string) {
-  const parts: Array<{ type: 'text' | 'json' | 'code'; content: string }> = [];
-  
+  const parts: Array<{ type: "text" | "json" | "code"; content: string }> = [];
+
   // Split by double newlines first to separate sections
-  const sections = content.split('\n\n');
-  
-  sections.forEach(section => {
+  const sections = content.split("\n\n");
+
+  sections.forEach((section) => {
     section = section.trim();
     if (!section) return;
-    
+
     // Try to detect JSON blocks with ```json wrapper
     const jsonBlockMatch = section.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonBlockMatch) {
       const textBefore = section.substring(0, jsonBlockMatch.index).trim();
       if (textBefore) {
-        parts.push({ type: 'text', content: textBefore });
+        parts.push({ type: "text", content: textBefore });
       }
-      parts.push({ type: 'json', content: jsonBlockMatch[1].trim() });
-      const textAfter = section.substring(jsonBlockMatch.index! + jsonBlockMatch[0].length).trim();
+      parts.push({ type: "json", content: jsonBlockMatch[1].trim() });
+      const textAfter = section
+        .substring(jsonBlockMatch.index! + jsonBlockMatch[0].length)
+        .trim();
       if (textAfter) {
-        parts.push({ type: 'text', content: textAfter });
+        parts.push({ type: "text", content: textAfter });
       }
       return;
     }
-    
+
     // Check if entire section is JSON
-    if (section.startsWith('{') && section.endsWith('}')) {
+    if (section.startsWith("{") && section.endsWith("}")) {
       try {
         JSON.parse(section);
-        parts.push({ type: 'json', content: section });
+        parts.push({ type: "json", content: section });
         return;
       } catch {
         // Not valid JSON, treat as text
       }
     }
-    
+
     // Check for code blocks
     const codeBlockMatch = section.match(/```(\w+)?\s*([\s\S]*?)\s*```/);
     if (codeBlockMatch) {
       const textBefore = section.substring(0, codeBlockMatch.index).trim();
       if (textBefore) {
-        parts.push({ type: 'text', content: textBefore });
+        parts.push({ type: "text", content: textBefore });
       }
-      parts.push({ 
-        type: 'code', 
+      parts.push({
+        type: "code",
         content: codeBlockMatch[2].trim(),
       });
-      const textAfter = section.substring(codeBlockMatch.index! + codeBlockMatch[0].length).trim();
+      const textAfter = section
+        .substring(codeBlockMatch.index! + codeBlockMatch[0].length)
+        .trim();
       if (textAfter) {
-        parts.push({ type: 'text', content: textAfter });
+        parts.push({ type: "text", content: textAfter });
       }
       return;
     }
-    
+
     // Otherwise it's text
-    parts.push({ type: 'text', content: section });
+    parts.push({ type: "text", content: section });
   });
-  
-  return parts.length > 0 ? parts : [{ type: 'text' as const, content }];
+
+  return parts.length > 0 ? parts : [{ type: "text" as const, content }];
 }
 
 function JsonBlock({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   try {
     const parsed = JSON.parse(content);
     const formatted = JSON.stringify(parsed, null, 2);
-    const lines = formatted.split('\n');
-    const preview = lines.slice(0, 3).join('\n');
-    
+    const lines = formatted.split("\n");
+    const preview = lines.slice(0, 3).join("\n");
+
     // Try to extract a title from the JSON
-    const title = parsed.planTitle || parsed.title || parsed.name || 'Implementation Plan';
-    
+    const title =
+      parsed.planTitle || parsed.title || parsed.name || "Implementation Plan";
+
     return (
       <div className="my-3 border border-white/10 rounded-lg overflow-hidden bg-black/40">
         <button
@@ -110,7 +115,8 @@ function JsonBlock({ content }: { content: string }) {
           <Code2 size={14} />
           <span className="text-white/70 font-medium">{title}</span>
           <span className="text-white/40 text-[10px] ml-auto">
-            {lines.length} lines • {isExpanded ? 'Click to collapse' : 'Click to expand'}
+            {lines.length} lines •{" "}
+            {isExpanded ? "Click to collapse" : "Click to expand"}
           </span>
         </button>
         {isExpanded && (
@@ -153,11 +159,13 @@ function CodeBlock({ content, lang }: { content: string; lang?: string }) {
 function CollapsibleText({ paragraphs }: { paragraphs: string[] }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const displayParagraphs = isExpanded ? paragraphs : paragraphs.slice(0, 5);
-  
+
   return (
     <>
       {displayParagraphs.map((line, j) => (
-        <p key={j} className="text-white/90">{line}</p>
+        <p key={j} className="text-white/90">
+          {line}
+        </p>
       ))}
       {paragraphs.length > 5 && (
         <button
@@ -181,8 +189,12 @@ function CollapsibleText({ paragraphs }: { paragraphs: string[] }) {
   );
 }
 
-export function MessageBubble({ message, isLastMessage, currentTool }: MessageBubbleProps) {
-  if (message.role === 'user') {
+export function MessageBubble({
+  message,
+  isLastMessage,
+  currentTool,
+}: MessageBubbleProps) {
+  if (message.role === "user") {
     return (
       <div className="flex justify-end">
         <div className="max-w-xl px-4 py-3 rounded-lg bg-white text-black">
@@ -203,35 +215,40 @@ export function MessageBubble({ message, isLastMessage, currentTool }: MessageBu
             {/* Main content with formatted parts */}
             <div className="text-sm leading-relaxed space-y-2">
               {contentParts.map((part, i) => {
-                if (part.type === 'json') {
+                if (part.type === "json") {
                   return <JsonBlock key={i} content={part.content} />;
-                } else if (part.type === 'code') {
+                } else if (part.type === "code") {
                   return <CodeBlock key={i} content={part.content} />;
                 } else {
                   // Split into paragraphs
-                  const paragraphs = part.content.split('\n').filter(line => line.trim());
-                  
+                  const paragraphs = part.content
+                    .split("\n")
+                    .filter((line) => line.trim());
+
                   // If there are too many paragraphs (> 10), show summary
                   if (paragraphs.length > 10) {
-                    return (
-                      <CollapsibleText key={i} paragraphs={paragraphs} />
-                    );
+                    return <CollapsibleText key={i} paragraphs={paragraphs} />;
                   }
-                  
+
                   return paragraphs.map((line, j) => (
-                    <p key={`${i}-${j}`} className="text-white/90">{line}</p>
+                    <p key={`${i}-${j}`} className="text-white/90">
+                      {line}
+                    </p>
                   ));
                 }
               })}
             </div>
-            
+
             {/* Active Tool Section - only show on last message */}
             {currentTool && isLastMessage && (
               <div className="mt-4 pt-3 border-t border-white/10">
                 <div className="bg-black/40 border border-amber-500/30 rounded-lg p-3">
                   <div className="flex items-start gap-2">
-                    {currentTool.status === 'running' ? (
-                      <Loader2 size={14} className="animate-spin text-amber-400 mt-0.5 shrink-0" />
+                    {currentTool.status === "running" ? (
+                      <Loader2
+                        size={14}
+                        className="animate-spin text-amber-400 mt-0.5 shrink-0"
+                      />
                     ) : (
                       <span className="text-green-400 text-sm shrink-0">✓</span>
                     )}
@@ -239,7 +256,7 @@ export function MessageBubble({ message, isLastMessage, currentTool }: MessageBu
                       <p className="text-xs font-mono text-amber-300 mb-1">
                         🔧 {currentTool.name}
                       </p>
-                      {currentTool.status === 'running' ? (
+                      {currentTool.status === "running" ? (
                         <p className="text-xs text-white/50">Processing...</p>
                       ) : (
                         currentTool.output && (

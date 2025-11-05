@@ -8,7 +8,11 @@ interface ChatNavbarProps {
   onSignOut: () => void;
 }
 
-export function ChatNavbar({ isAuthenticated, userData, onSignOut }: ChatNavbarProps) {
+export function ChatNavbar({
+  isAuthenticated,
+  userData,
+  onSignOut,
+}: ChatNavbarProps) {
   return (
     <nav className="relative z-20 border-b border-white/5 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -29,12 +33,16 @@ export function ChatNavbar({ isAuthenticated, userData, onSignOut }: ChatNavbarP
             {isAuthenticated ? (
               <>
                 <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-sm text-white/60">{userData?.email}</span>
+                  <span className="text-sm text-white/60">
+                    {userData?.email}
+                  </span>
                   <span className="text-xs text-white/40">•</span>
-                  <span className="text-sm text-white font-medium">{userData?.tokens_remaining} tokens</span>
+                  <span className="text-sm text-white font-medium">
+                    {userData?.tokens_remaining} tokens
+                  </span>
                 </div>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="text-white border-white/20 hover:bg-white/5 bg-transparent"
                   onClick={onSignOut}
                 >
@@ -44,12 +52,17 @@ export function ChatNavbar({ isAuthenticated, userData, onSignOut }: ChatNavbarP
             ) : (
               <>
                 <Link href="/signin">
-                  <Button variant="outline" className="text-white border-white/20 hover:bg-white/5 bg-transparent">
+                  <Button
+                    variant="outline"
+                    className="text-white border-white/20 hover:bg-white/5 bg-transparent"
+                  >
                     Sign In
                   </Button>
                 </Link>
                 <Link href="/signup">
-                  <Button className="bg-white text-black hover:bg-slate-100">Sign Up</Button>
+                  <Button className="bg-white text-black hover:bg-slate-100">
+                    Sign Up
+                  </Button>
                 </Link>
               </>
             )}

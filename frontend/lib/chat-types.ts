@@ -7,14 +7,14 @@ export interface Message {
   event_type?: string;
   tool_calls?: Array<{
     name: string;
-    status: 'success' | 'error' | 'running';
+    status: "success" | "error" | "running";
     output?: string;
   }>;
 }
 
 export interface ActiveToolCall {
   name: string;
-  status: 'running' | 'completed';
+  status: "running" | "completed";
   output?: string;
 }
 

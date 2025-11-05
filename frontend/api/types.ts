@@ -31,11 +31,11 @@ export interface RegisterRequest {
 }
 
 export interface ChatResponse {
-  id: string;
-  user_id: number;
-  title: string;
-  app_url: string | null;
-  created_at: string;
+  status: string;
+  message: string;
+  chat_id: string;
+  tokens_remaining: number;
+  reset_in_hours: number;
 }
 
 export interface ApiError {

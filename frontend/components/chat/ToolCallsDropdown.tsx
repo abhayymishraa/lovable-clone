@@ -2,7 +2,7 @@ import { ChevronDown, Loader2 } from "lucide-react";
 
 interface ToolCall {
   name: string;
-  status: 'success' | 'error' | 'running';
+  status: "success" | "error" | "running";
   output?: string;
 }
 
@@ -12,7 +12,11 @@ interface ToolCallsDropdownProps {
   onToggle: () => void;
 }
 
-export function ToolCallsDropdown({ toolCalls, isExpanded, onToggle }: ToolCallsDropdownProps) {
+export function ToolCallsDropdown({
+  toolCalls,
+  isExpanded,
+  onToggle,
+}: ToolCallsDropdownProps) {
   if (toolCalls.length === 0) return null;
 
   return (
@@ -24,33 +28,36 @@ export function ToolCallsDropdown({ toolCalls, isExpanded, onToggle }: ToolCalls
         <div className="flex items-center gap-2">
           <span className="text-base">🔧</span>
           <span className="font-medium">
-            {toolCalls.length} tool call{toolCalls.length !== 1 ? 's' : ''} executed
+            {toolCalls.length} tool call{toolCalls.length !== 1 ? "s" : ""}{" "}
+            executed
           </span>
         </div>
-        <ChevronDown 
-          size={18} 
-          className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+        <ChevronDown
+          size={18}
+          className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
         />
       </button>
-      
+
       {isExpanded && (
         <div className="mt-2 mb-3 space-y-2 max-h-64 overflow-y-auto">
           {toolCalls.map((tool, idx) => (
-            <div 
+            <div
               key={idx}
               className="flex items-start gap-3 text-xs px-4 py-3 bg-black/60 border border-white/5 rounded-lg hover:border-white/10 transition-colors"
             >
               <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/5 shrink-0 mt-0.5">
-                {tool.status === 'success' ? (
+                {tool.status === "success" ? (
                   <span className="text-green-400 text-sm">✓</span>
-                ) : tool.status === 'error' ? (
+                ) : tool.status === "error" ? (
                   <span className="text-red-400 text-sm">✗</span>
                 ) : (
                   <Loader2 size={14} className="animate-spin text-amber-400" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-white/90 font-medium mb-1">{tool.name}</div>
+                <div className="text-white/90 font-medium mb-1">
+                  {tool.name}
+                </div>
                 {tool.output && (
                   <div className="text-white/50 text-[11px] leading-relaxed wrap-break-word">
                     {tool.output}

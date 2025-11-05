@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import type React from "react";
 import { useState } from "react";
@@ -25,7 +25,7 @@ export default function SignUpPage() {
     try {
       // Call the register API
       const data = await authApi.register({ name, email, password });
-      
+
       // Validate response data
       if (!data.access_token || !data.user) {
         console.error("Invalid response:", data);
@@ -34,7 +34,7 @@ export default function SignUpPage() {
 
       // Store token in localStorage
       localStorage.setItem("auth_token", data.access_token);
-      
+
       // Store user data
       localStorage.setItem("user_data", JSON.stringify(data.user));
 
@@ -48,15 +48,16 @@ export default function SignUpPage() {
       router.push("/chat");
     } catch (error: unknown) {
       console.error("Error signing up:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to sign up";
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to sign up";
+
       // Handle specific error messages
       if (errorMessage.includes("Email already registered")) {
         setError("This email is already registered. Please sign in instead.");
       } else {
         setError(errorMessage);
       }
-      
+
       setIsLoading(false);
       // Clear any partial data on error
       localStorage.removeItem("auth_token");
@@ -69,18 +70,25 @@ export default function SignUpPage() {
       <div
         className="absolute inset-0 z-0"
         style={{
-          background: "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(226, 232, 240, 0.15), transparent 70%), #000000",
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(226, 232, 240, 0.15), transparent 70%), #000000",
         }}
       />
 
       <nav className="relative z-20 border-b border-white/5 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/chat" className="text-white font-semibold text-lg hover:opacity-80 transition">
+          <Link
+            href="/chat"
+            className="text-white font-semibold text-lg hover:opacity-80 transition"
+          >
             WEB BUILDER
           </Link>
           <div className="flex items-center gap-2">
             <Link href="/signin">
-              <Button variant="outline" className="text-white border-white/20 hover:bg-white/5 bg-transparent">
+              <Button
+                variant="outline"
+                className="text-white border-white/20 hover:bg-white/5 bg-transparent"
+              >
                 Sign In
               </Button>
             </Link>
@@ -91,14 +99,19 @@ export default function SignUpPage() {
       <div className="relative z-10 min-h-[calc(100vh-60px)] flex flex-col items-center justify-center px-4">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
-            <h1 className="text-4xl font-semibold text-white mb-2">Create your account</h1>
+            <h1 className="text-4xl font-semibold text-white mb-2">
+              Create your account
+            </h1>
             <p className="text-white/60">Sign up to start building with AI</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="name" className="block text-sm text-white/80 mb-2">
+                <label
+                  htmlFor="name"
+                  className="block text-sm text-white/80 mb-2"
+                >
                   Name
                 </label>
                 <Input
@@ -114,7 +127,10 @@ export default function SignUpPage() {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm text-white/80 mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm text-white/80 mb-2"
+                >
                   Email
                 </label>
                 <Input
@@ -130,7 +146,10 @@ export default function SignUpPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm text-white/80 mb-2">
+                <label
+                  htmlFor="password"
+                  className="block text-sm text-white/80 mb-2"
+                >
                   Password
                 </label>
                 <Input
@@ -144,7 +163,9 @@ export default function SignUpPage() {
                   disabled={isLoading}
                   className="w-full bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-white/20"
                 />
-                <p className="text-xs text-white/40 mt-1">Minimum 6 characters</p>
+                <p className="text-xs text-white/40 mt-1">
+                  Minimum 6 characters
+                </p>
               </div>
 
               {error && (
@@ -171,7 +192,10 @@ export default function SignUpPage() {
 
             <div className="mt-6 text-center text-sm text-white/60">
               Already have an account?{" "}
-              <Link href="/signin" className="text-white hover:underline font-medium">
+              <Link
+                href="/signin"
+                className="text-white hover:underline font-medium"
+              >
                 Sign In
               </Link>
             </div>

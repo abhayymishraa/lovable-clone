@@ -117,17 +117,15 @@
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   html {
     background-color: #0a0a0a;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     background-color: #0a0a0a;
   }
-  
-  /* Smooth scrolling for all scrollable elements */
-  
 
+  /* Smooth scrolling for all scrollable elements */
 }

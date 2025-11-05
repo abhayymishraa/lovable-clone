@@ -10,7 +10,13 @@ interface ChatIdHeaderProps {
   onBack: () => void;
 }
 
-export function ChatIdHeader({ userData, showPreview, onTogglePreview, onNewChat, onBack }: ChatIdHeaderProps) {
+export function ChatIdHeader({
+  userData,
+  showPreview,
+  onTogglePreview,
+  onNewChat,
+  onBack,
+}: ChatIdHeaderProps) {
   return (
     <div className="border-b border-white/5 backdrop-blur-md px-4 py-4">
       <div className="flex items-center justify-between">
@@ -22,13 +28,17 @@ export function ChatIdHeader({ userData, showPreview, onTogglePreview, onNewChat
         >
           <ChevronLeft size={24} />
         </Button>
-        <h1 className="font-mono font-semibold tracking-tight text-white">WEB BUILDER AI</h1>
+        <h1 className="font-mono font-semibold tracking-tight text-white">
+          WEB BUILDER AI
+        </h1>
         <div className="flex items-center gap-2">
           {userData && (
             <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
               <span className="text-sm text-white/60">{userData.email}</span>
               <span className="text-xs text-white/40">•</span>
-              <span className="text-sm text-white font-medium">{userData.tokens_remaining} tokens</span>
+              <span className="text-sm text-white font-medium">
+                {userData.tokens_remaining} tokens
+              </span>
             </div>
           )}
           <Button
@@ -39,7 +49,7 @@ export function ChatIdHeader({ userData, showPreview, onTogglePreview, onNewChat
           >
             {showPreview ? <Eye size={20} /> : <EyeOff size={20} />}
           </Button>
-          <Button 
+          <Button
             className="bg-white text-black hover:bg-slate-100 text-sm font-sans"
             onClick={onNewChat}
           >
