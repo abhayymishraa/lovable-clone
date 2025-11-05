@@ -1,14 +1,44 @@
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langchain_core.tools import Tool
+from langchain_core.messages import HumanMessage, SystemMessage
 from .graph_state import GraphState
 from .tools import create_tools_with_context
-from .agent import llm_gemini_pro
+from .agent import llm_gemini_pro, llm_gemini_flash
 import json
 import asyncio
 from langgraph.prebuilt import create_react_agent
 from .prompts import INITPROMPT
+from utils.store import load_json_store
+import traceback
+from db.base import get_db
+from db.models import Message
+import uuid
 
-import asyncio
+
+async def safe_send_socket(socket, data):
+    """Helper to safely send WebSocket messages"""
+    if socket:
+        try:
+            await socket.send_json(data)
+        except Exception as e:
+            print(f"WebSocket send failed: {e}")
+
+
+async def store_message(chat_id: str, role: str, content: str, event_type: str = None, tool_calls: list = None):
+    """Helper to store a message in the database"""
+    try:
+        async for db in get_db():
+            message = Message(
+                id=str(uuid.uuid4()),
+                chat_id=chat_id,
+                role=role,
+                content=content,
+                event_type=event_type,
+                tool_calls=tool_calls,
+            )
+            db.add(message)
+            await db.commit()
+            break
+    except Exception as e:
+        print(f"Failed to store message: {e}")
 
 
 async def planner_node(state: GraphState) -> GraphState:
@@ -18,54 +48,52 @@ async def planner_node(state: GraphState) -> GraphState:
     try:
         socket = state.get("socket")
         if socket:
-            await socket.send_json(
+            await safe_send_socket(socket, 
                 {
                     "e": "planner_started",
                     "message": "Planning the application architecture...",
                 }
             )
 
-        # Get the enhanced prompt for planning
         enhanced_prompt = state.get("enhanced_prompt", state.get("user_prompt", ""))
+        print(f"INFO: Recieved Prompt {enhanced_prompt}")
         project_id = state.get("project_id", "")
-
-        # Check for previous context
-        from utils.store import load_json_store
+        print(f"INFO: Project ID: {project_id}")
 
         previous_context = ""
+
+        # check if previous context is there
         if project_id:
             context = load_json_store(project_id, "context.json")
+
             if context:
+
                 # Format conversation history
                 conversation_history_text = ""
                 conversation_history = context.get("conversation_history", [])
                 if conversation_history:
                     conversation_history_text = (
-                        "\n💬 CONVERSATION HISTORY (Last requests):\n"
+                        "\nCONVERSATION HISTORY (Last requests):\n"
                     )
-                    for i, conv in enumerate(
-                        conversation_history[-5:], 1
-                    ):  # Show last 5
+                    for i, conv in enumerate(conversation_history[-5:], 1):
                         status = "✅" if conv.get("success") else "❌"
                         conversation_history_text += f"   {i}. {status} {conv.get('user_prompt', 'Unknown')[:100]}\n"
 
                 previous_context = f"""
-                
-                ========================================
+
                 IMPORTANT: PREVIOUS WORK ON THIS PROJECT
-                ========================================
                 
-                📋 WHAT THIS PROJECT IS:
+                WHAT THIS PROJECT IS:
                 {context.get('semantic', 'Not documented')}
                 
-                ⚙️ HOW IT WORKS:
+                HOW IT WORKS:
                 {context.get('procedural', 'Not documented')}
                 
-                📝 WHAT HAS BEEN DONE:
+                WHAT HAS BEEN DONE:
                 {context.get('episodic', 'Not documented')}
                 
-                📁 EXISTING FILES: {len(context.get('files_created', []))} files already exist
-                {conversation_history_text}
+                EXISTING FILES: {len(context.get('files_created', []))} files already exist
+                {conversation_history_text} 
                 
                 CRITICAL: This is an EXISTING project. Your plan should:
                 - Build upon what already exists
@@ -75,7 +103,6 @@ async def planner_node(state: GraphState) -> GraphState:
                 - Integrate with the existing structure
                 """
 
-        # Create planning prompt
         planning_prompt = f"""
         You are an expert React application architect. Analyze the following user request and create a comprehensive implementation plan.
         {previous_context}
@@ -103,12 +130,34 @@ async def planner_node(state: GraphState) -> GraphState:
             HumanMessage(content=planning_prompt),
         ]
 
-        response = await llm_gemini_pro.ainvoke(messages)
+        if socket:
+            await safe_send_socket(socket, {"e": "thinking", "message": "Analyzing your request and creating implementation plan..."})
+
+        # Store thinking message
+        await store_message(
+            chat_id=state.get("project_id"),
+            role="assistant",
+            content="Analyzing your request and creating implementation plan...",
+            event_type="thinking"
+        )
+
+        response = await llm_gemini_flash.ainvoke(messages)
+
+        plan_preview = response.content[:500] if len(response.content) > 500 else response.content
+        if socket:
+            await safe_send_socket(socket, {"e": "thinking", "message": plan_preview})
+
+        # Store plan preview
+        await store_message(
+            chat_id=state.get("project_id"),
+            role="assistant",
+            content=plan_preview,
+            event_type="thinking"
+        )
 
         try:
             plan = json.loads(response.content)
         except json.JSONDecodeError:
-            # Fallback if not valid JSON
             plan = {
                 "overview": response.content,
                 "components": [],
@@ -118,7 +167,6 @@ async def planner_node(state: GraphState) -> GraphState:
                 "implementation_steps": [],
             }
 
-        # Update state
         new_state = state.copy()
         new_state["plan"] = plan
         new_state["current_node"] = "planner"
@@ -127,13 +175,21 @@ async def planner_node(state: GraphState) -> GraphState:
         )
 
         if socket:
-            await socket.send_json(
+            await safe_send_socket(socket, 
                 {
                     "e": "planner_complete",
                     "plan": plan,
                     "message": "Planning completed successfully",
                 }
             )
+
+        # Store plan completion
+        await store_message(
+            chat_id=state.get("project_id"),
+            role="assistant",
+            content=json.dumps(plan, indent=2),
+            event_type="planner_complete"
+        )
 
         return new_state
 
@@ -149,7 +205,7 @@ async def planner_node(state: GraphState) -> GraphState:
         )
 
         if socket:
-            await socket.send_json({"e": "planner_error", "message": error_msg})
+            await safe_send_socket(socket, {"e": "planner_error", "message": error_msg})
 
         return new_state
 
@@ -158,6 +214,7 @@ async def builder_node(state: GraphState) -> GraphState:
     """
     Builder node: Creates and modifies files based on plan or feedback
     """
+
     try:
         socket = state.get("socket")
         sandbox = state.get("sandbox")
@@ -166,7 +223,7 @@ async def builder_node(state: GraphState) -> GraphState:
             raise Exception("Sandbox not available")
 
         if socket:
-            await socket.send_json(
+            await safe_send_socket(socket, 
                 {
                     "e": "builder_started",
                     "message": "Starting to build the application...",
@@ -174,7 +231,11 @@ async def builder_node(state: GraphState) -> GraphState:
             )
 
         plan = state.get("plan", {})
+        if plan:
+            print("INFO: Plan Recieved")
+
         current_errors = state.get("current_errors", {})
+
         project_id = state.get("project_id", "")
 
         base_tools = create_tools_with_context(sandbox, socket, project_id)
@@ -192,10 +253,8 @@ async def builder_node(state: GraphState) -> GraphState:
                 else:
                     error_details.append(f"{error_type}: {str(errors)}")
 
-            builder_prompt = f"""
-            {INITPROMPT}
-            
-            ⚠️ CRITICAL: BUILD FAILED - YOU MUST FIX THESE ERRORS ⚠️
+            builder_prompt = f"""            
+            CRITICAL: BUILD FAILED - YOU MUST FIX THESE ERRORS
             
             The previous build attempt failed with these errors:
             
@@ -217,24 +276,19 @@ async def builder_node(state: GraphState) -> GraphState:
             """
         else:
             builder_prompt = f"""
-            {INITPROMPT}
-            
-            ========================================
             STEP 0: CHECK PREVIOUS WORK (IMPORTANT!)
-            ========================================
+
             FIRST ACTION: Call get_context() to see if there's any previous work on this project.
             - If context exists, read it carefully to understand what's already built
             - Check which files already exist before creating new ones
             - Build upon existing work instead of recreating everything
             
-            ========================================
             IMPLEMENTATION PLAN FROM PLANNER:
-            ========================================
+
             {json.dumps(plan, indent=2)}
             
-            ========================================
             YOUR MISSION:
-            ========================================
+
             Build the COMPLETE application according to the plan above.
             
             CRITICAL STEPS - DO ALL OF THESE:
@@ -247,7 +301,7 @@ async def builder_node(state: GraphState) -> GraphState:
             
             2. CREATE ALL DIRECTORIES (only create those directory if not there):
                - Use execute_command("mkdir -p ...") for all needed directories
-               - Example: mkdir -p src/components/layout src/components/navigation src/pages
+               - Example: mkdir -p src/components/card src/components/navigation src/pages
             
             3. CREATE ALL COMPONENTS, PAGES AND FILES:
                - Use create_file for EVERY component, pages mentioned in the plan
@@ -257,7 +311,8 @@ async def builder_node(state: GraphState) -> GraphState:
             
             4. UPDATE MAIN FILES:
                - Update src/App.jsx to use the new pages
-               - Update src/index.css with Tailwind directives if needed
+               - make sure index.css file have this import "@import "tailwindcss";" on top otherwise tailwind not work
+               - Update src/App.css with Tailwind directives if needed
             
             5. VERIFY YOUR WORK:
                - Use list_directory to see what you created
@@ -284,35 +339,86 @@ async def builder_node(state: GraphState) -> GraphState:
             print(
                 f"Builder node: Starting agent execution with {len(base_tools)} tools"
             )
-            result = await asyncio.wait_for(
-                agent_executor.ainvoke({"messages": messages}, config=config),
-                timeout=600,
-            )
-            print(f"Builder node: Agent execution completed")
-
+            
             files_created = []
             files_modified = []
 
-            if hasattr(result, "messages"):
-                print(f"Builder node: Processing {len(result.messages)} messages")
-                for message in result.messages:
-                    if hasattr(message, "content"):
-                        content = str(message.content)
-                        print(f"Builder node: Message content: {content[:200]}...")
-                        if "created" in content.lower() and "file" in content.lower():
-                            import re
+            async for event in agent_executor.astream_events(
+                {"messages": messages}, version="v1", config=config
+            ):
+                kind = event["event"]
 
-                            file_matches = re.findall(
-                                r"(\w+\.(jsx?|tsx?|css|json))", content
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content and socket:
+                        await safe_send_socket(socket, {"e": "thinking", "message": content})
+                        # Store thinking message (batched to avoid too many DB writes)
+                        if len(content) > 50:  # Only store substantial thinking
+                            await store_message(
+                                chat_id=state.get("project_id"),
+                                role="assistant",
+                                content=content,
+                                event_type="thinking"
                             )
-                            files_created.extend([match[0] for match in file_matches])
-                            print(f"Builder node: Found files: {file_matches}")
 
+                elif kind == "on_tool_start":
+                    tool_name = event.get("name")
+                    tool_input = event.get("data", {}).get("input", {})
+                    if socket:
+                        await safe_send_socket(socket, 
+                            {
+                                "e": "tool_started",
+                                "tool_name": tool_name,
+                                "tool_input": tool_input,
+                            }
+                        )
+                    # Store tool start
+                    await store_message(
+                        chat_id=state.get("project_id"),
+                        role="assistant",
+                        content=f"Using tool: {tool_name}",
+                        event_type="tool_started",
+                        tool_calls=[{"name": tool_name, "status": "running", "input": str(tool_input)}]
+                    )
+
+                elif kind == "on_tool_end":
+                    tool_name = event.get("name")
+                    tool_output = event.get("data", {}).get("output")
+                    
+                    if hasattr(tool_output, "content"):
+                        tool_output = tool_output.content
+                    elif not isinstance(tool_output, str):
+                        tool_output = str(tool_output)
+                    
+                    if socket:
+                        await safe_send_socket(socket, 
+                            {
+                                "e": "tool_completed",
+                                "tool_name": tool_name,
+                                "tool_output": tool_output,
+                            }
+                        )
+                    # Store tool completion
+                    await store_message(
+                        chat_id=state.get("project_id"),
+                        role="assistant",
+                        content=f"Completed: {tool_name}\n{tool_output[:200]}",
+                        event_type="tool_completed",
+                        tool_calls=[{"name": tool_name, "status": "success", "output": tool_output[:500]}]
+                    )
+                    
+                    if "created" in str(tool_output).lower() and "file" in str(tool_output).lower():
+                        import re
+                        file_matches = re.findall(r"(\w+\.(jsx?|tsx?|css|json))", str(tool_output))
+                        files_created.extend([match[0] for match in file_matches])
+
+            print(f"Builder node: Agent execution completed")
             print(f"Builder node: Final files_created: {files_created}")
 
             new_state = state.copy()
             new_state["files_created"] = files_created
             new_state["files_modified"] = files_modified
+            print(f"INFO : {files_created}")
             new_state["current_node"] = "builder"
             new_state["execution_log"].append(
                 {
@@ -324,7 +430,7 @@ async def builder_node(state: GraphState) -> GraphState:
             )
 
             if socket:
-                await socket.send_json(
+                await safe_send_socket(socket, 
                     {
                         "e": "builder_complete",
                         "files_created": files_created,
@@ -354,7 +460,7 @@ async def builder_node(state: GraphState) -> GraphState:
             )
 
             if socket:
-                await socket.send_json(
+                await safe_send_socket(socket, 
                     {
                         "e": "builder_error",
                         "message": "Builder agent timed out after 10 minutes",
@@ -385,7 +491,7 @@ async def builder_node(state: GraphState) -> GraphState:
             )
 
             if socket:
-                await socket.send_json(
+                await safe_send_socket(socket, 
                     {
                         "e": "builder_error",
                         "message": f"Builder agent execution error: {str(e)}",
@@ -406,9 +512,10 @@ async def builder_node(state: GraphState) -> GraphState:
         )
 
         if socket:
-            await socket.send_json({"e": "builder_error", "message": error_msg})
+            await safe_send_socket(socket, {"e": "builder_error", "message": error_msg})
 
         return new_state
+
 
 
 async def code_validator_node(state: GraphState) -> GraphState:
@@ -423,7 +530,7 @@ async def code_validator_node(state: GraphState) -> GraphState:
             raise Exception("Sandbox not available")
 
         if socket:
-            await socket.send_json(
+            await safe_send_socket(socket, 
                 {
                     "e": "code_validator_started",
                     "message": "Code validator agent reviewing and fixing code...",
@@ -433,7 +540,6 @@ async def code_validator_node(state: GraphState) -> GraphState:
         project_id = state.get("project_id", "")
         base_tools = create_tools_with_context(sandbox, socket, project_id)
 
-        # Create validator prompt
         validator_prompt = """
         You are a Code Validator Agent - an expert at reviewing and fixing React code.
         
@@ -517,25 +623,85 @@ async def code_validator_node(state: GraphState) -> GraphState:
             HumanMessage(content=validator_prompt),
         ]
 
-        validator_agent = create_react_agent(llm_gemini_pro, tools=base_tools)
+        validator_agent = create_react_agent(llm_gemini_flash, tools=base_tools)
         config = {"recursion_limit": 50}
 
         try:
             print(
                 f"Code validator: Starting agent execution with {len(base_tools)} tools"
             )
-            result = await asyncio.wait_for(
-                validator_agent.ainvoke({"messages": messages}, config=config),
-                timeout=600,
-            )
-            print(f"Code validator: Agent execution completed")
-
-            # Code validator completed - no build test needed
-            print("Code validator: Code review and dependency checking completed")
+            
             validation_errors = []
 
+            async for event in validator_agent.astream_events(
+                {"messages": messages}, version="v1", config=config
+            ):
+                kind = event["event"]
+
+                if kind == "on_chat_model_stream":
+                    content = event["data"]["chunk"].content
+                    if content and socket:
+                        await safe_send_socket(socket, {"e": "thinking", "message": content})
+                        # Store thinking message (batched to avoid too many DB writes)
+                        if len(content) > 50:  # Only store substantial thinking
+                            await store_message(
+                                chat_id=state.get("project_id"),
+                                role="assistant",
+                                content=content,
+                                event_type="thinking"
+                            )
+
+                elif kind == "on_tool_start":
+                    tool_name = event.get("name")
+                    tool_input = event.get("data", {}).get("input", {})
+                    if socket:
+                        await safe_send_socket(socket, 
+                            {
+                                "e": "tool_started",
+                                "tool_name": tool_name,
+                                "tool_input": tool_input,
+                            }
+                        )
+                    # Store tool start
+                    await store_message(
+                        chat_id=state.get("project_id"),
+                        role="assistant",
+                        content=f"Using tool: {tool_name}",
+                        event_type="tool_started",
+                        tool_calls=[{"name": tool_name, "status": "running", "input": str(tool_input)}]
+                    )
+
+                elif kind == "on_tool_end":
+                    tool_name = event.get("name")
+                    tool_output = event.get("data", {}).get("output")
+                    
+                    if hasattr(tool_output, "content"):
+                        tool_output = tool_output.content
+                    elif not isinstance(tool_output, str):
+                        tool_output = str(tool_output)
+                    
+                    if socket:
+                        await safe_send_socket(socket, 
+                            {
+                                "e": "tool_completed",
+                                "tool_name": tool_name,
+                                "tool_output": tool_output,
+                            }
+                        )
+                    # Store tool completion
+                    await store_message(
+                        chat_id=state.get("project_id"),
+                        role="assistant",
+                        content=f"Completed: {tool_name}\n{tool_output[:200]}",
+                        event_type="tool_completed",
+                        tool_calls=[{"name": tool_name, "status": "success", "output": tool_output[:500]}]
+                    )
+
+            print(f"Code validator: Agent execution completed")
+            print("Code validator: Code review and dependency checking completed")
+
             if socket:
-                await socket.send_json(
+                await safe_send_socket(socket, 
                     {
                         "e": "validation_success",
                         "message": "Code validator completed - code review and dependencies checked!",
@@ -546,7 +712,6 @@ async def code_validator_node(state: GraphState) -> GraphState:
             new_state["validation_errors"] = validation_errors
             new_state["current_node"] = "code_validator"
 
-            # Update retry count if there are errors
             if validation_errors:
                 retry_count = new_state.get("retry_count", {})
                 retry_count["validation_errors"] = (
@@ -569,7 +734,7 @@ async def code_validator_node(state: GraphState) -> GraphState:
             )
 
             if socket:
-                await socket.send_json(
+                await safe_send_socket(socket, 
                     {
                         "e": "code_validator_complete",
                         "errors": validation_errors,
@@ -593,7 +758,7 @@ async def code_validator_node(state: GraphState) -> GraphState:
             new_state["current_node"] = "code_validator"
 
             if socket:
-                await socket.send_json(
+                await safe_send_socket(socket, 
                     {
                         "e": "code_validator_timeout",
                         "message": "Code validator timed out",
@@ -605,8 +770,6 @@ async def code_validator_node(state: GraphState) -> GraphState:
     except Exception as e:
         error_msg = f"Code validator node error: {str(e)}"
         print(error_msg)
-        import traceback
-
         traceback.print_exc()
 
         new_state = state.copy()
@@ -624,7 +787,7 @@ async def code_validator_node(state: GraphState) -> GraphState:
         )
 
         if socket:
-            await socket.send_json({"e": "code_validator_error", "message": error_msg})
+            await safe_send_socket(socket, {"e": "code_validator_error", "message": error_msg})
 
         return new_state
 
@@ -641,7 +804,7 @@ async def application_checker_node(state: GraphState) -> GraphState:
             raise Exception("Sandbox not available")
 
         if socket:
-            await socket.send_json(
+            await safe_send_socket(socket, 
                 {
                     "e": "app_check_started",
                     "message": "Checking application status and capturing errors...",
@@ -650,12 +813,10 @@ async def application_checker_node(state: GraphState) -> GraphState:
 
         runtime_errors = []
 
-        # Skip dev server checks - environment is pre-configured
         print(
             "Application checker: Skipping dev server checks - environment is pre-configured"
         )
 
-        # Instead, check if the application structure is correct
         try:
             # Check if main files exist
             main_files = ["src/App.jsx", "src/main.jsx", "package.json"]
@@ -689,7 +850,6 @@ async def application_checker_node(state: GraphState) -> GraphState:
         new_state["runtime_errors"] = runtime_errors
         new_state["current_node"] = "application_checker"
 
-        # Update retry count if there are errors
         if runtime_errors:
             retry_count = new_state.get("retry_count", {})
             retry_count["runtime_errors"] = retry_count.get("runtime_errors", 0) + 1
@@ -697,7 +857,6 @@ async def application_checker_node(state: GraphState) -> GraphState:
 
             new_state["current_errors"] = {"runtime_errors": runtime_errors}
         else:
-            # No runtime errors - set success flag
             new_state["success"] = True
             print(
                 "Application checker: No runtime errors found - setting success to True"
@@ -712,7 +871,7 @@ async def application_checker_node(state: GraphState) -> GraphState:
         )
 
         if socket:
-            await socket.send_json(
+            await safe_send_socket(socket, 
                 {
                     "e": "app_check_complete",
                     "errors": runtime_errors,
@@ -734,19 +893,9 @@ async def application_checker_node(state: GraphState) -> GraphState:
         )
 
         if socket:
-            await socket.send_json({"e": "app_check_error", "message": error_msg})
+            await safe_send_socket(socket, {"e": "app_check_error", "message": error_msg})
 
         return new_state
-
-
-def should_continue_to_import_checker(state: GraphState) -> str:
-    """Always go to import checker after builder"""
-    return "import_checker"
-
-
-def should_continue_to_code_validator(state: GraphState) -> str:
-    """After import checker, go to code validator"""
-    return "code_validator"
 
 
 def should_retry_builder_for_validation(state: GraphState) -> str:
@@ -784,39 +933,6 @@ def should_retry_builder_for_validation(state: GraphState) -> str:
         return "application_checker"
 
 
-def should_retry_builder_or_continue(state: GraphState) -> str:
-    """Decide whether to retry builder or continue based on import errors"""
-    import_errors = state.get("import_errors", [])
-    retry_count = state.get("retry_count", {})
-    max_retries = state.get("max_retries", 3)
-
-    # Safety check: prevent infinite loops
-    total_retries = sum(retry_count.values())
-    if total_retries > 10:  # Maximum total retries across all error types
-        print(f"Maximum total retries reached ({total_retries}) - forcing end")
-        return "application_checker"
-
-    print(
-        f"Import checker decision: {len(import_errors)} errors, {retry_count.get('import_errors', 0)} retries"
-    )
-
-    if not import_errors:
-        print("No import errors - continuing to application checker")
-        return "application_checker"
-
-    current_retries = retry_count.get("import_errors", 0)
-    if current_retries < max_retries:
-        print(
-            f"Retrying builder for import errors (attempt {current_retries + 1}/{max_retries})"
-        )
-        return "builder"
-    else:
-        print(
-            f"Max retries reached for import errors - continuing to application checker"
-        )
-        return "application_checker"  # Give up and continue
-
-
 def should_retry_builder_or_finish(state: GraphState) -> str:
     """Decide whether to retry builder or finish based on runtime errors"""
     runtime_errors = state.get("runtime_errors", [])
@@ -825,7 +941,7 @@ def should_retry_builder_or_finish(state: GraphState) -> str:
 
     # Safety check: prevent infinite loops
     total_retries = sum(retry_count.values())
-    if total_retries > 10:  # Maximum total retries across all error types
+    if total_retries > 10:
         print(f"Maximum total retries reached ({total_retries}) - forcing end")
         return "end"
 
@@ -849,9 +965,4 @@ def should_retry_builder_or_finish(state: GraphState) -> str:
         state["error_message"] = (
             f"Failed after {max_retries} retries for runtime errors"
         )
-        return "end"  # Give up and finish
-
-
-def should_finish(state: GraphState) -> str:
-    """Always finish after application checker with no errors"""
-    return "end"
+        return "end"

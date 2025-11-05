@@ -12,19 +12,7 @@ from typing import Dict, Any
 
 
 def create_langgraph_workflow():
-    """
-    Create and compile the LangGraph workflow for the multi-agent system
-
-    Workflow:
-    1. Planner → Creates implementation plan
-    2. Builder → Creates all files
-    3. Code Validator → Checks for syntax/build errors
-       - If errors → Back to Builder
-       - If no errors → Continue
-    4. Application Checker → Verifies application
-       - If errors → Back to Builder
-       - If no errors → Success
-    """
+    """Returns the LangGraph workflow for the multi-agent system"""
 
     # Create the state graph
     workflow = StateGraph(GraphState)
@@ -75,43 +63,14 @@ class LangGraphWorkflow:
         Run the workflow with the given initial state
 
         Args:
-            initial_state: Initial state for the workflow
+            initial_state: Initial state for the workflow (must match GraphState schema)
 
         Returns:
             Final state after workflow execution
         """
         try:
-            # Initialize state with defaults
-            state = {
-                "user_prompt": "",
-                "enhanced_prompt": "",
-                "plan": None,
-                "files_created": [],
-                "files_modified": [],
-                "current_errors": {},
-                "import_errors": [],
-                "validation_errors": [],
-                "runtime_errors": [],
-                "retry_count": {
-                    "import_errors": 0,
-                    "validation_errors": 0,
-                    "runtime_errors": 0,
-                },
-                "max_retries": 3,
-                "sandbox": None,
-                "socket": None,
-                "messages": [],
-                "current_node": "",
-                "execution_log": [],
-                "success": False,
-                "final_url": None,
-                "error_message": None,
-                **initial_state,
-            }
-
-            # Run the workflow
-            final_state = await self.app.ainvoke(state)
-
+            # LangGraph handles state management based on GraphState TypedDict
+            final_state = await self.app.ainvoke(initial_state)
             return final_state
 
         except Exception as e:
@@ -126,30 +85,6 @@ class LangGraphWorkflow:
                 ],
             }
 
-    def get_workflow_info(self) -> Dict[str, Any]:
-        """
-        Get information about the workflow structure
-
-        Returns:
-            Dictionary with workflow information
-        """
-        return {
-            "nodes": ["planner", "builder", "code_validator", "application_checker"],
-            "entry_point": "planner",
-            "end_points": ["end"],
-            "retry_logic": {
-                "validation_errors": "max 3 retries",
-                "runtime_errors": "max 3 retries",
-            },
-            "flow": "planner → builder → code_validator → application_checker → end",
-            "feedback_loops": [
-                "code_validator → builder (on validation errors)",
-                "application_checker → builder (on runtime errors)",
-            ],
-        }
-
-
-# Create the main workflow instance
 langgraph_workflow = LangGraphWorkflow()
 
 
