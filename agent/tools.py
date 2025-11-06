@@ -10,6 +10,17 @@ def create_tools_with_context(
     sandbox: AsyncSandbox, socket: WebSocket, project_id: str = None
 ):
     """Create tools with sandbox and socket context"""
+    async def safe_send_json(sock: WebSocket, data: dict) -> bool:
+        """Safely send JSON over WebSocket; return False if send fails or socket closed."""
+        try:
+            # starlette/fastapi WebSocket doesn't expose a public 'connected' flag reliably,
+            # so attempt send and catch exceptions if the connection is closed.
+            await sock.send_json(data)
+            return True
+        except Exception as e:
+            # Log and return False so callers can stop trying to send further messages.
+            print(f"safe_send_json failed: {e}")
+            return False
 
     @tool
     async def create_file(file_path: str, content: str) -> str:
@@ -42,17 +53,10 @@ def create_tools_with_context(
                 fixed_content = content
 
             await sandbox.files.write(full_path, fixed_content)
-            await socket.send_json(
-                {"e": "file_created", "message": f"Created {file_path}"}
-            )
+            await safe_send_json(socket, {"e": "file_created", "message": f"Created {file_path}"})
             return f"File {file_path} created successfully."
         except Exception as e:
-            await socket.send_json(
-                {
-                    "e": "file_error",
-                    "message": f"Failed to create {file_path}: {str(e)}",
-                }
-            )
+            await safe_send_json(socket, {"e": "file_error", "message": f"Failed to create {file_path}: {str(e)}",})
             return f"Failed to create file {file_path}: {str(e)}"
 
     @tool
@@ -74,14 +78,10 @@ def create_tools_with_context(
             # The React app is in /home/user/react-app
             full_path = os.path.join("/home/user/react-app", file_path)
             content = await sandbox.files.read(full_path)
-            await socket.send_json(
-                {"e": "file_read", "message": f"Read content from {file_path}"}
-            )
+            await safe_send_json(socket, {"e": "file_read", "message": f"Read content from {file_path}"})
             return f"Content from {file_path}:\n{content}"
         except Exception as e:
-            await socket.send_json(
-                {"e": "file_error", "message": f"Failed to read {file_path}: {str(e)}"}
-            )
+            await safe_send_json(socket, {"e": "file_error", "message": f"Failed to read {file_path}: {str(e)}"})
             return f"Failed to read file {file_path}: {str(e)}"
 
     @tool
@@ -102,17 +102,10 @@ def create_tools_with_context(
             # The React app is in /home/user/react-app
             full_path = os.path.join("/home/user/react-app", file_path)
             await sandbox.files.remove(full_path)
-            await socket.send_json(
-                {"e": "file_deleted", "message": f"Deleted {file_path}"}
-            )
+            await safe_send_json(socket, {"e": "file_deleted", "message": f"Deleted {file_path}"})
             return f"File {file_path} deleted successfully."
         except Exception as e:
-            await socket.send_json(
-                {
-                    "e": "file_error",
-                    "message": f"Failed to delete {file_path}: {str(e)}",
-                }
-            )
+            await safe_send_json(socket, {"e": "file_error", "message": f"Failed to delete {file_path}: {str(e)}",})
             return f"Failed to delete file {file_path}: {str(e)}"
 
     @tool
@@ -136,47 +129,51 @@ def create_tools_with_context(
             execute_command("npm install react-router-dom") - installs routing library
         """
         try:
-            await socket.send_json({"e": "command_started", "command": command})
+            await safe_send_json(socket, {"e": "command_started", "command": command})
 
             # The React app is in /home/user/react-app
             result = await sandbox.commands.run(command, cwd="/home/user/react-app")
 
-            await socket.send_json(
+            await safe_send_json(
+                socket,
                 {
                     "e": "command_output",
                     "command": command,
                     "stdout": result.stdout,
                     "stderr": result.stderr,
                     "exit_code": result.exit_code,
-                }
+                },
             )
 
             if result.exit_code == 0:
-                await socket.send_json(
+                await safe_send_json(
+                    socket,
                     {
                         "e": "command_executed",
                         "command": command,
                         "message": "Command executed successfully",
-                    }
+                    },
                 )
                 return f"Command '{command}' executed successfully. Output: {result.stdout[:500]}{'...' if len(result.stdout) > 500 else ''}"
             else:
-                await socket.send_json(
+                await safe_send_json(
+                    socket,
                     {
                         "e": "command_failed",
                         "command": command,
                         "message": f"Command failed with exit code {result.exit_code}",
-                    }
+                    },
                 )
                 return f"Command '{command}' failed with exit code {result.exit_code}. Error: {result.stderr[:500]}{'...' if len(result.stderr) > 500 else ''}"
 
         except Exception as e:
-            await socket.send_json(
+            await safe_send_json(
+                socket,
                 {
                     "e": "command_error",
                     "command": command,
                     "message": f"Command execution error: {str(e)}",
-                }
+                },
             )
             return f"Command '{command}' failed with error: {str(e)}"
 
@@ -199,50 +196,52 @@ def create_tools_with_context(
             Automatically excludes node_modules and hidden files for cleaner output
         """
         try:
-            await socket.send_json(
-                {"e": "command_started", "command": f"tree -I 'node_modules|.*' {path}"}
-            )
+            await safe_send_json(socket, {"e": "command_started", "command": f"tree -I 'node_modules|.*' {path}"})
 
             result = await sandbox.commands.run(
                 f"tree -I 'node_modules|.*' {path}", cwd="/home/user/react-app"
             )
 
-            await socket.send_json(
+            await safe_send_json(
+                socket,
                 {
                     "e": "command_output",
                     "command": f"tree -I 'node_modules|.*' {path}",
                     "stdout": result.stdout,
                     "stderr": result.stderr,
                     "exit_code": result.exit_code,
-                }
+                },
             )
 
             if result.exit_code == 0:
-                await socket.send_json(
+                await safe_send_json(
+                    socket,
                     {
                         "e": "command_executed",
                         "command": f"tree -I 'node_modules|.*' {path}",
                         "message": "Directory structure listed successfully",
-                    }
+                    },
                 )
                 return f"Directory structure:\n{result.stdout}"
             else:
-                await socket.send_json(
+                await safe_send_json(
+                    socket,
                     {
                         "e": "command_failed",
                         "command": f"tree -I 'node_modules|.*' {path}",
                         "message": f"Command failed with exit code {result.exit_code}",
-                    }
+                    },
                 )
                 return f"Failed to list directory structure. Error: {result.stderr}"
 
         except Exception as e:
-            await socket.send_json(
+            await safe_send_json(
+                socket,
                 {
                     "e": "command_error",
                     "command": f"tree -I 'node_modules|.*' {path}",
                     "message": f"Command execution error: {str(e)}",
-                }
+                },
             )
             return f"Failed to list directory: {str(e)}"
 
@@ -271,9 +270,7 @@ def create_tools_with_context(
         try:
             path = "/home/user/react-app"
 
-            await socket.send_json(
-                {"e": "build_test_started", "message": "Testing application build..."}
-            )
+            await safe_send_json(socket, {"e": "build_test_started", "message": "Testing application build..."})
 
             # Clean Vite cache first nd run npm install
             clean_command = "rm -rf node_modules/.vite-temp && npm install"
@@ -284,28 +281,28 @@ def create_tools_with_context(
             res = await sandbox.commands.run(build_command, cwd=path)
 
             if res.exit_code == 0:
-                await socket.send_json(
+                await safe_send_json(
+                    socket,
                     {
                         "e": "build_test_success",
                         "message": "Build test passed successfully",
-                    }
+                    },
                 )
                 return f"Build test PASSED. Application builds successfully.\n\nBuild output:\n{res.stdout[:500]}"
             else:
                 error_output = res.stderr if res.stderr else res.stdout
-                await socket.send_json(
+                await safe_send_json(
+                    socket,
                     {
                         "e": "build_test_failed",
                         "message": "Build test failed",
                         "error": error_output[:500],
-                    }
+                    },
                 )
                 return f"Build test FAILED with exit code {res.exit_code}.\n\nError:\n{error_output[:1000]}"
 
         except Exception as e:
-            await socket.send_json(
-                {"e": "build_test_error", "message": f"Build test error: {str(e)}"}
-            )
+            await safe_send_json(socket, {"e": "build_test_error", "message": f"Build test error: {str(e)}"})
             return f"Build test failed with error: {str(e)}"
 
     @tool
@@ -359,11 +356,12 @@ def create_tools_with_context(
             await sandbox.files.write_files(file_objects)
 
             file_names = [f["path"] for f in files_data]
-            await socket.send_json(
+            await safe_send_json(
+                socket,
                 {
                     "e": "files_created",
                     "message": f"Created {len(file_names)} files: {', '.join(file_names)}",
-                }
+                },
             )
 
             return (
@@ -371,11 +369,12 @@ def create_tools_with_context(
             )
 
         except Exception as e:
-            await socket.send_json(
+            await safe_send_json(
+                socket,
                 {
                     "e": "file_error",
                     "message": f"Failed to create multiple files: {str(e)}",
-                }
+                },
             )
             return f"Failed to create multiple files: {str(e)}"
 
@@ -579,12 +578,13 @@ def create_tools_with_context(
                     result += f"  {cmd}\n"
                 result += f"\nRun these commands to install missing dependencies."
 
-                await socket.send_json(
+                await safe_send_json(
+                    socket,
                     {
                         "e": "missing_dependencies",
                         "packages": missing_packages,
                         "commands": install_commands,
-                    }
+                    },
                 )
 
                 return result
@@ -592,11 +592,12 @@ def create_tools_with_context(
                 return "✅ All dependencies are properly installed. No missing packages found."
 
         except Exception as e:
-            await socket.send_json(
+            await safe_send_json(
+                socket,
                 {
                     "e": "dependency_check_error",
                     "message": f"Dependency check failed: {str(e)}",
-                }
+                },
             )
             return f"Dependency check failed: {str(e)}"
 
