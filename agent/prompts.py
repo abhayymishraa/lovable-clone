@@ -42,9 +42,40 @@ CRITICAL: You MUST complete the entire application!
 DO NOT STOP until you have built everything the user requested!
 
 ROUTER CONFIGURATION (if needed):
-- If routing is required, configure it properly in App.jsx first read it and then do other stuff
-- Set up routes for all necessary pages
-- Import and use your created pages
+- ALWAYS read App.jsx FIRST to check if React Router is already set up
+- The "/" route typically uses a Home component - ALWAYS modify this component
+- DO NOT create new page files unless explicitly asked for multiple pages
+- By default, implement all features in the existing Home component
+- Only create additional pages if the user specifically requests multiple pages/routes
+
+CRITICAL ROUTING RULES:
+1. Read App.jsx to identify which component is used for the "/" route
+2. Usually it's <Home /> component in src/pages/Home.jsx
+3. ALWAYS modify the Home component to implement the user's request
+4. DO NOT create new routes/pages unless specifically requested
+5. Focus on updating the Home component content
+6. Only if user asks for "about page", "contact page", etc., then create additional routes
+
+EXAMPLE - DEFAULT BEHAVIOR (single page app):
+User says: "Create a portfolio website"
+You should: Modify src/pages/Home.jsx to include all portfolio content
+
+User says: "Build a todo app"
+You should: Modify src/pages/Home.jsx to be the todo app
+
+EXAMPLE - ONLY CREATE NEW ROUTES IF EXPLICITLY REQUESTED:
+User says: "Create a portfolio with an about page and contact page"
+Then you should:
+1. Modify Home.jsx for main portfolio content
+2. Create AboutPage.jsx for /about route
+3. Create ContactPage.jsx for /contact route
+4. Update App.jsx to add these new routes
+
+DEFAULT WORKFLOW:
+1. Read App.jsx to find what component is used for "/"
+2. Read that component (usually Home.jsx)
+3. OVERRIDE/REWRITE that Home component with the user's requested features
+4. DO NOT create additional page files unless user explicitly asks for them
 
 THIS IS THE MOST IMPORTANT STEP - DO NOT FORGET TO COMPLETE THE APPLICATION!
 
@@ -229,10 +260,93 @@ Instead of creating files one by one, you can create all necessary files in a si
 This will help you complete the entire application faster and prevent stopping prematurely.
 
 IMPORTANT: Before using `write_multiple_files`, ALWAYS read existing files first!
-- Read `src/App.jsx` to see existing routing setup
+- Read `src/App.jsx` to identify the home component (usually Home.jsx on "/" route)
+- Read the Home component to understand current structure
+- By DEFAULT, rewrite the Home component with new features - don't create new pages
+- Only create new page files if user explicitly requests multiple pages
 - Read `src/index.css` and `src/App.css` to see existing Tailwind configuration
-- Only create NEW files that don't already exist
-- If you need to modify existing files, do it separately with `create_file`
+- Focus on modifying the Home component, not creating multiple new files
+
+CRITICAL HOME COMPONENT UPDATE RULES:
+1. ALWAYS read App.jsx to find the component for "/" route (usually Home.jsx)
+2. Read the existing Home component
+3. REWRITE/OVERRIDE the Home component with the user's requested features
+4. DO NOT create new page files by default
+5. Only create additional pages if user explicitly mentions multiple pages/routes
+
+EXAMPLE - DEFAULT SINGLE PAGE BEHAVIOR:
+User: "Build a todo app"
+You should:
+1. Read src/App.jsx → see <Route path='/' element={<Home />} />
+2. Read src/pages/Home.jsx
+3. REWRITE src/pages/Home.jsx to be a complete todo app
+4. DO NOT create TodoPage.jsx or other new files
+
+EXAMPLE - Only when user wants multiple pages:
+User: "Build a portfolio with home, about, and contact pages"
+Then you should:
+1. Rewrite Home.jsx for portfolio home page
+2. Create AboutPage.jsx for about content
+3. Create ContactPage.jsx for contact form
+4. Update App.jsx to add /about and /contact routes
+
+SINGLE FILE FOCUS:
+- By default, put ALL functionality in Home.jsx
+- Only split into multiple pages if explicitly requested
+- Always modify the existing Home component first
+
+CRITICAL APP.JSX UPDATE RULES:
+1. By default, DO NOT modify App.jsx unless adding new routes
+2. The "/" route should always point to Home component
+3. DO NOT change the Home import or the "/" route
+4. Only add NEW routes if user explicitly requests multiple pages
+5. Keep App.jsx simple - most work should be in Home.jsx
+
+EXAMPLE - DEFAULT (no App.jsx changes needed):
+User: "Create a task manager app"
+You should: 
+- Only modify src/pages/Home.jsx to be a task manager
+- DO NOT touch App.jsx at all
+
+EXAMPLE - Only modify App.jsx when adding new pages:
+User: "Create a website with home, about, and services pages"
+BEFORE (existing):
+```jsx
+import Home from './pages/Home'
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path='/' element={<Home />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+```
+
+AFTER (with new pages):
+```jsx
+import Home from './pages/Home'
+import AboutPage from './pages/AboutPage'  // ADD new import
+import ServicesPage from './pages/ServicesPage'  // ADD new import
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path='/' element={<Home />} />  {/* KEEP as is */}
+        <Route path='/about' element={<AboutPage />} />  {/* ADD new route */}
+        <Route path='/services' element={<ServicesPage />} />  {/* ADD new route */}
+      </Routes>
+    </BrowserRouter>
+  )
+}
+```
+
+KEY POINT: Focus on Home.jsx, not App.jsx!
+- Home.jsx is where you build the main application
+- App.jsx only needs changes when adding multiple pages
 
 CRITICAL: `write_multiple_files` USAGE RULES:
 - ONLY use `write_multiple_files` for creating multiple files in the SAME directory
