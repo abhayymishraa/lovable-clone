@@ -1,4 +1,5 @@
 from langchain_core.messages import HumanMessage, SystemMessage
+from fastapi import WebSocket
 from .graph_state import GraphState
 from .tools import create_tools_with_context
 from .agent import llm_gemini_pro, llm_gemini_flash
@@ -14,7 +15,7 @@ from db.models import Message
 import uuid
 
 
-async def safe_send_socket(socket, data):
+async def safe_send_socket(socket: WebSocket, data):
     """Helper to safely send WebSocket messages"""
     if socket:
         try:
@@ -65,13 +66,18 @@ async def planner_node(state: GraphState) -> GraphState:
 
         # check if previous context is there
         if project_id:
+            print(f"Loading context for project: {project_id}")
             context = load_json_store(project_id, "context.json")
+            print(f"Loaded context: {context}")
 
             if context:
-
+                print(f"Context keys found: {context.keys()}")
+                
                 # Format conversation history
                 conversation_history_text = ""
                 conversation_history = context.get("conversation_history", [])
+                print(f"Conversation history entries: {len(conversation_history)}")
+                
                 if conversation_history:
                     conversation_history_text = (
                         "\nCONVERSATION HISTORY (Last requests):\n"
@@ -103,6 +109,9 @@ async def planner_node(state: GraphState) -> GraphState:
                 - NOT recreate existing components/pages
                 - Integrate with the existing structure
                 """
+                print(f"Previous context prepared successfully")
+            else:
+                print("No previous context found - empty dict returned")
 
         planning_prompt = f"""
         You are an expert React application architect. Analyze the following user request and create a comprehensive implementation plan.

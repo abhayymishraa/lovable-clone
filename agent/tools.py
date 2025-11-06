@@ -490,7 +490,7 @@ def create_tools_with_context(
             }
 
             # Save to store
-            save_json_store(project_id, "context.json", context_data)
+            save_json_store(project_id, "context.json", context)
 
             return f"Context saved successfully for project {project_id}. This information will be available in future sessions."
 
