@@ -502,9 +502,16 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
         # Continue anyway, this is not critical
 
     try:
+        # If there's an active agent task waiting for the socket, keep it alive
+        # by receiving messages while the agent sends
         while True:
             try:
-                data = await websocket.receive_json()
+                # Set a receive timeout so we don't block forever if client is idle
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=300.0)
+            except asyncio.TimeoutError:
+                # Client idle for 5 minutes, close connection
+                print(f"WebSocket timeout for {id} - closing idle connection")
+                break
             except RuntimeError as e:
                 # WebSocket was closed (probably replaced by new connection)
                 print(f"WebSocket receive error for {id}: {e}")
@@ -625,6 +632,14 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
         print(f"WebSocket disconnected for project {id}")
     finally:
         active_sockets.pop(id, None)
+        # Cancel and await the agent task properly
         if id in active_runs:
-            active_runs[id].cancel()
-            active_runs.pop(id, None)
+            task = active_runs.pop(id, None)
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    print(f"Agent task cancelled for {id}")
+                except Exception as e:
+                    print(f"Error cancelling agent task for {id}: {e}")
