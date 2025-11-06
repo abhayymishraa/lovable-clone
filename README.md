@@ -29,7 +29,7 @@ An AI-powered web application builder that generates React applications through 
 ## Project Structure
 
 ```
-backend/
+lovable-clone/
 ├── agent/              # Multi-agent system
 │   ├── agent.py        # LLM configuration
 │   ├── graph_builder.py # LangGraph workflow
@@ -41,14 +41,14 @@ backend/
 ├── auth/               # Authentication system
 ├── db/                 # Database models and configuration
 ├── alembic/            # Database migrations
+├── frontend/           # Next.js application
+│   ├── app/            # Next.js pages
+│   ├── components/     # React components
+│   ├── api/            # API client
+│   └── lib/            # Utilities and types
 ├── main.py             # FastAPI application entry point
-└── requirements.txt    # Python dependencies
-
-frontend/
-├── app/                # Next.js pages
-├── components/         # React components
-├── api/                # API client
-└── lib/                # Utilities and types
+├── pyproject.toml      # Python dependencies (uv)
+└── requirements.txt    # Python dependencies (pip)
 ```
 
 ## Prerequisites
@@ -81,11 +81,13 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 HUGGINGFACE_API_KEY=your-huggingface-api-key
 ```
 
-## Backend Setup
+## Setup
+
+### Backend (Python/FastAPI)
 
 1. Install dependencies using uv (recommended) or pip:
 ```bash
-# Using uv (faster)
+# Using uv (faster, recommended)
 uv sync
 
 # Or using pip
@@ -105,9 +107,9 @@ uv run uvicorn main:app --reload
 uvicorn main:app --reload
 ```
 
-The backend will be available at `http://localhost:8000`
+The API server will be available at `http://localhost:8000`
 
-## Frontend Setup
+### Frontend (Next.js)
 
 1. Navigate to frontend directory:
 ```bash
@@ -177,7 +179,7 @@ CREATE DATABASE webbuilder;
 
 ## Development
 
-### Backend Development
+### Running Backend
 ```bash
 # Run with auto-reload
 uv run uvicorn main:app --reload
@@ -190,7 +192,7 @@ alembic upgrade head
 black .
 ```
 
-### Frontend Development
+### Running Frontend
 ```bash
 cd frontend
 npm run dev      # Development server
