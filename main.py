@@ -24,10 +24,14 @@ from auth.utils import decode_token
 
 app = FastAPI(title="lovable")
 
+origins = [
+    "http://localhost:3000",
+    "https://webbuilder.elevenai.xyz",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
