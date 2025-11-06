@@ -8,7 +8,23 @@ DATABASE_URL = os.getenv(
 )
 
 # Creates a connection pool that supports async I/O.
-engine = create_async_engine(DATABASE_URL, echo=True, future=True)
+# Production-ready settings for Supabase connection pooler
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=True,
+    future=True,
+    pool_pre_ping=True,  # Test connections before using them
+    pool_size=5,  # Number of connections to keep open
+    max_overflow=10,  # Additional connections when pool is full
+    pool_recycle=3600,  # Recycle connections after 1 hour
+    connect_args={
+        "statement_cache_size": 0,  # Required for pgbouncer
+        "server_settings": {
+            "application_name": "lovable-backend",
+            "jit": "off"
+        }
+    }
+)
 
 
 # async_sessionmaker() creates a factory for new async sessions.
