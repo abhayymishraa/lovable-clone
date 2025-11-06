@@ -185,7 +185,21 @@ export function handleWebSocketMessage(
     if (data.e === "thinking") {
       handlers.setMessages((prev) => {
         const lastMsg = prev[prev.length - 1];
-        const newContent = (data.message || data.content) as string;
+        
+        // Handle message that could be string or array
+        let newContent = data.message || data.content;
+        if (Array.isArray(newContent)) {
+          // If message is an array, extract text from it (e.g., LLM content blocks)
+          newContent = newContent
+            .map((item: any) => {
+              if (typeof item === "string") return item;
+              if (item.text) return item.text;
+              if (item.type === "text" && item.text) return item.text;
+              return JSON.stringify(item);
+            })
+            .join("\n");
+        }
+        newContent = String(newContent); // Ensure it's a string
         const formatted = data.formatted as string | undefined;
 
         // Check if the new content looks like JSON (starts with { or contains ```json)

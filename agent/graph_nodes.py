@@ -355,16 +355,32 @@ async def builder_node(state: GraphState) -> GraphState:
 
                 if kind == "on_chat_model_stream":
                     content = event["data"]["chunk"].content
-                    if content and socket:
-                        await safe_send_socket(socket, {"e": "thinking", "message": content})
-                        # Store thinking message (batched to avoid too many DB writes)
-                        if len(content) > 50:  # Only store substantial thinking
-                            await store_message(
-                                chat_id=state.get("project_id"),
-                                role="assistant",
-                                content=content,
-                                event_type="thinking"
-                            )
+                    if content:
+                        # Handle content that could be string or list of content blocks
+                        if isinstance(content, list):
+                            # If content is a list of blocks, extract text
+                            text_parts = []
+                            for block in content:
+                                if isinstance(block, str):
+                                    text_parts.append(block)
+                                elif isinstance(block, dict) and block.get("type") == "text":
+                                    text_parts.append(block.get("text", ""))
+                                elif hasattr(block, "text"):
+                                    text_parts.append(block.text)
+                            content = "\n".join(filter(None, text_parts))
+                        else:
+                            content = str(content)
+                        
+                        if content and socket:
+                            await safe_send_socket(socket, {"e": "thinking", "message": content})
+                            # Store thinking message (batched to avoid too many DB writes)
+                            if len(content) > 50:  # Only store substantial thinking
+                                await store_message(
+                                    chat_id=state.get("project_id"),
+                                    role="assistant",
+                                    content=content,
+                                    event_type="thinking"
+                                )
 
                 elif kind == "on_tool_start":
                     tool_name = event.get("name")
@@ -645,16 +661,32 @@ async def code_validator_node(state: GraphState) -> GraphState:
 
                 if kind == "on_chat_model_stream":
                     content = event["data"]["chunk"].content
-                    if content and socket:
-                        await safe_send_socket(socket, {"e": "thinking", "message": content})
-                        # Store thinking message (batched to avoid too many DB writes)
-                        if len(content) > 50:  # Only store substantial thinking
-                            await store_message(
-                                chat_id=state.get("project_id"),
-                                role="assistant",
-                                content=content,
-                                event_type="thinking"
-                            )
+                    if content:
+                        # Handle content that could be string or list of content blocks
+                        if isinstance(content, list):
+                            # If content is a list of blocks, extract text
+                            text_parts = []
+                            for block in content:
+                                if isinstance(block, str):
+                                    text_parts.append(block)
+                                elif isinstance(block, dict) and block.get("type") == "text":
+                                    text_parts.append(block.get("text", ""))
+                                elif hasattr(block, "text"):
+                                    text_parts.append(block.text)
+                            content = "\n".join(filter(None, text_parts))
+                        else:
+                            content = str(content)
+                        
+                        if content and socket:
+                            await safe_send_socket(socket, {"e": "thinking", "message": content})
+                            # Store thinking message (batched to avoid too many DB writes)
+                            if len(content) > 50:  # Only store substantial thinking
+                                await store_message(
+                                    chat_id=state.get("project_id"),
+                                    role="assistant",
+                                    content=content,
+                                    event_type="thinking"
+                                )
 
                 elif kind == "on_tool_start":
                     tool_name = event.get("name")
