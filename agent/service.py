@@ -29,7 +29,7 @@ class Service:
         self.sandboxes: Dict[str, AsyncSandbox] = {}
         self.workflow = get_workflow()
         self.project_timestamps: Dict[str, float] = {}
-        self.sandbox_timeout = 3600 
+        self.sandbox_timeout = 1800 
         self.storage_base_path = os.path.join(
             os.path.dirname(__file__), "..", "projects"
         )
@@ -46,7 +46,7 @@ class Service:
             time_elapsed = current_time - last_access
 
             if time_elapsed < self.sandbox_timeout:
-                await self.sandboxes[id].set_timeout(3600)
+                await self.sandboxes[id].set_timeout(1800)
                 self.project_timestamps[id] = current_time
                 print(f"Extended timeout for existing sandbox: {id}")
                 return self.sandboxes[id]
@@ -61,7 +61,7 @@ class Service:
         self.sandboxes[id] = await AsyncSandbox.create(
             template=TEMPLATE_ID, timeout=1800
         )
-        await self.sandboxes[id].set_timeout(3600)
+        await self.sandboxes[id].set_timeout(1800)
         self.project_timestamps[id] = current_time
         print("Sandbox created with react environment")
 
