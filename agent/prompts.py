@@ -271,7 +271,7 @@ Example usage for COMPONENTS (same directory):
 ```
 
 CRITICAL: NEVER mix different directories in one call!
-❌ WRONG: Mixing pages and components
+WRONG: Mixing pages and components
 ```json
 [
   {"path": "src/pages/Todo.jsx", "data": "..."},
@@ -279,7 +279,7 @@ CRITICAL: NEVER mix different directories in one call!
 ]
 ```
 
-✅ CORRECT: Only pages in one call
+CORRECT: Only pages in one call
 ```json
 [
   {"path": "src/pages/Todo.jsx", "data": "..."},

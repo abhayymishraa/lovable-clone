@@ -68,7 +68,7 @@ export default function ChatIdPage() {
   const fetchProjectFiles = async () => {
     // Check if we're in a browser environment
     if (typeof window === "undefined") {
-      console.log("❌ Not in browser environment, skipping file fetch");
+      console.log("Not in browser environment, skipping file fetch");
       return;
     }
 
@@ -89,13 +89,13 @@ export default function ChatIdPage() {
       }>(`/projects/${chatId}/files`);
 
       console.log(
-        "✅ Files fetched successfully:",
+        "Files fetched successfully:",
         response.data.files?.length || 0,
         "files",
       );
       setProjectFiles(response.data.files || []);
     } catch (error) {
-      console.error("❌ Error fetching files:", error);
+      console.error("Error fetching files:", error);
       if (error instanceof Error) {
         console.error("Error message:", error.message);
       }
@@ -120,14 +120,14 @@ export default function ChatIdPage() {
   // Poll URL until it's ready
   const pollUrlUntilReady = async (url: string) => {
     setIsCheckingUrl(true);
-    console.log("🔍 Starting URL health check for:", url);
+    console.log("Starting URL health check for:", url);
 
     let attempts = 0;
     const maxAttempts = 20; // 20 attempts over ~20 seconds
 
     const checkInterval = setInterval(async () => {
       attempts++;
-      console.log(`⏱️ Health check attempt ${attempts}/${maxAttempts}`);
+      console.log(`Health check attempt ${attempts}/${maxAttempts}`);
 
       const isReady = await checkUrlReady(url);
 
@@ -136,10 +136,10 @@ export default function ChatIdPage() {
         setIsCheckingUrl(false);
 
         if (isReady) {
-          console.log("✅ URL is ready, setting iframe");
+          console.log("URL is ready, setting iframe");
           setAppUrl(url);
         } else {
-          console.log("⚠️ Max attempts reached, setting iframe anyway");
+          console.log("Max attempts reached, setting iframe anyway");
           setAppUrl(url);
         }
       }
@@ -161,7 +161,7 @@ export default function ChatIdPage() {
   useEffect(() => {
     // Only run in browser environment
     if (typeof window === "undefined") {
-      console.log("⚠️ Not in browser, skipping file fetch setup");
+      console.log("Not in browser, skipping file fetch setup");
       return;
     }
 
@@ -226,7 +226,7 @@ export default function ChatIdPage() {
     const connectWebSocket = () => {
       // Prevent duplicate connections
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        console.log("⚠️ WebSocket already connected, skipping...");
+        console.log("WebSocket already connected, skipping...");
         return;
       }
 
@@ -241,7 +241,7 @@ export default function ChatIdPage() {
       setTimeout(() => {
         try {
           const wsUrl = `${WS_URL}/ws/${chatId}?token=${token}`;
-          console.log("🔗 WebSocket URL being used:", wsUrl);
+          console.log("WebSocket URL being used:", wsUrl);
           const ws = new WebSocket(wsUrl);
 
           // Create handlers using utility

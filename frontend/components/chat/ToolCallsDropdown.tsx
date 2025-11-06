@@ -26,7 +26,7 @@ export function ToolCallsDropdown({
         className="w-full flex items-center justify-between gap-2 text-sm text-white/70 hover:text-white transition-colors py-2"
       >
         <div className="flex items-center gap-2">
-          <span className="text-base">🔧</span>
+          <span className="text-base">Tools</span>
           <span className="font-medium">
             {toolCalls.length} tool call{toolCalls.length !== 1 ? "s" : ""}{" "}
             executed

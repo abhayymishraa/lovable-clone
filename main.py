@@ -441,12 +441,12 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
 
     # Check if there's already an active connection for this chat
     if id in active_sockets:
-        print(f"⚠️ Connection already exists for {id}, rejecting new connection")
+        print(f"Connection already exists for {id}, rejecting new connection")
         await websocket.close(code=1008, reason="Connection already active for this chat")
         return
 
     await websocket.accept()
-    print(f"✅ WebSocket accepted and connected for project {id} by user {user_id}")
+    print(f"WebSocket accepted and connected for project {id} by user {user_id}")
     active_sockets[id] = websocket
 
     # Send message history on connect
@@ -458,8 +458,8 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
             )
             chat = chat_result.scalar_one_or_none()
             
-            print(f"📊 Chat info for {id}: {chat}")
-            print(f"🔗 App URL: {chat.app_url if chat else 'No chat found'}")
+            print(f"Chat info for {id}: {chat}")
+            print(f"App URL: {chat.app_url if chat else 'No chat found'}")
             
             result = await db.execute(
                 select(Message)
@@ -468,7 +468,7 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
             )
             messages = result.scalars().all()
             
-            print(f"📨 Sending history with {len(messages)} messages and app_url: {chat.app_url if chat else None}")
+            print(f"Sending history with {len(messages)} messages and app_url: {chat.app_url if chat else None}")
             
             if messages:  # Only send if there are messages
                 await websocket.send_json({
@@ -493,10 +493,10 @@ async def ws_listener(websocket: WebSocket, id: str, token: str = None):
                     "messages": [],
                     "app_url": chat.app_url if chat else None
                 })
-            print(f"✅ Successfully sent history for {id}")
+            print(f"Successfully sent history for {id}")
             break
     except Exception as e:
-        print(f"❌ Error sending message history: {e}")
+        print(f"Error sending message history: {e}")
         import traceback
         traceback.print_exc()
         # Continue anyway, this is not critical

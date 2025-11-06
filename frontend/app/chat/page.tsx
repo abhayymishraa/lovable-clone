@@ -39,7 +39,7 @@ export default function ChatPage() {
         authApi
           .getCurrentUser()
           .then((freshData) => {
-            console.log("🔄 Refreshed user data:", freshData);
+            console.log("Refreshed user data:", freshData);
             const updatedUser = { ...parsed, ...freshData };
             localStorage.setItem("user_data", JSON.stringify(updatedUser));
             setUserData(updatedUser);

@@ -10,7 +10,7 @@ export function handleWebSocketMessage(
 ) {
   try {
     const data: WebSocketMessage = JSON.parse(event.data);
-    console.log("📨 Received WebSocket message:", data);
+    console.log("Received WebSocket message:", data);
 
     // Handle tool start events - show temporary tool card
     if (data.e === "tool_started") {
@@ -135,15 +135,15 @@ export function handleWebSocketMessage(
     // Handle initial message history
     if (data.type === "history" && data.messages) {
       console.log(
-        "📜 Received message history:",
+        "Received message history:",
         data.messages.length,
         "messages",
       );
-      console.log("🔍 Full history data:", data);
-      console.log("🔗 App URL in data:", data.app_url);
+      console.log("Full history data:", data);
+      console.log("App URL in data:", data.app_url);
       const consolidatedMessages = handlers.consolidateMessages(data.messages);
       console.log(
-        "📦 Consolidated to:",
+        "Consolidated to:",
         consolidatedMessages.length,
         "messages",
       );
@@ -152,12 +152,12 @@ export function handleWebSocketMessage(
       // Set app URL if it exists - skip health check for restored URLs
       if (data.app_url) {
         console.log(
-          "✅ Setting app URL directly (no health check for restored URL):",
+          "Setting app URL directly (no health check for restored URL):",
           data.app_url,
         );
         handlers.setAppUrl(data.app_url);
       } else {
-        console.log("⚠️ No app_url found in history data");
+        console.log("No app_url found in history data");
       }
 
       return;
@@ -170,7 +170,7 @@ export function handleWebSocketMessage(
 
     // Handle token status updates
     if (data.type === "token_update" || data.tokens_remaining !== undefined) {
-      console.log("🔄 Token update received:", data.tokens_remaining);
+      console.log("Token update received:", data.tokens_remaining);
       const user = JSON.parse(localStorage.getItem("user_data") || "{}");
       user.tokens_remaining = data.tokens_remaining;
       if (data.reset_in_hours !== undefined) {
@@ -178,7 +178,7 @@ export function handleWebSocketMessage(
       }
       localStorage.setItem("user_data", JSON.stringify(user));
       handlers.setUserData(user);
-      console.log("✅ User data updated:", user);
+      console.log("User data updated:", user);
     }
 
     // Handle thinking content
@@ -279,7 +279,7 @@ export function createWebSocketHandlers(
 ) {
   return {
     onopen: () => {
-      console.log("✅ WebSocket connected for chat:", chatId);
+      console.log("WebSocket connected for chat:", chatId);
       onConnected();
     },
     onerror: (error: Event) => {

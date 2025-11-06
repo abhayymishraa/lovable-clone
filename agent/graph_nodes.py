@@ -77,7 +77,7 @@ async def planner_node(state: GraphState) -> GraphState:
                         "\nCONVERSATION HISTORY (Last requests):\n"
                     )
                     for i, conv in enumerate(conversation_history[-5:], 1):
-                        status = "✅" if conv.get("success") else "❌"
+                        status = "[SUCCESS]" if conv.get("success") else "[FAILED]"
                         conversation_history_text += f"   {i}. {status} {conv.get('user_prompt', 'Unknown')[:100]}\n"
 
                 previous_context = f"""

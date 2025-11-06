@@ -259,7 +259,7 @@ class Service:
         try:
             await socket.send_json(data)
         except Exception as e:
-            print(f"⚠️ Failed to send WebSocket message: {e}")
+            print(f"Failed to send WebSocket message: {e}")
             return
 
     async def run_agent_stream(self, prompt: str, id: str, socket: WebSocket):
@@ -321,6 +321,13 @@ class Service:
             print(f"Workflow success: {final_state.get('success')}")
             print(f"Files created: {final_state.get('files_created')}")
 
+            # Save conversation history for future context
+            await self._save_conversation_history(
+                project_id=id,
+                user_prompt=prompt,
+                success=final_state.get('success', False)
+            )
+
             async for db in get_db():
                 completion_message = Message(
                     id=str(uuid.uuid4()),
@@ -335,7 +342,7 @@ class Service:
                 chat = result.scalar_one_or_none()
                 if chat:
                     chat.app_url = url
-                    print(f"💾 Saved app_url to database: {url}")
+                    print(f"Saved app_url to database: {url}")
 
                 await db.commit()
                 break

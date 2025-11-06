@@ -291,10 +291,10 @@ export default function Home() {
                 <div className="bg-black rounded-lg p-6 border border-neutral-700">
                   <div className="space-y-4">
                     <div className="text-neutral-500 text-sm">
-                      <p>💬 "Add a dark mode toggle button"</p>
+                      <p>"Add a dark mode toggle button"</p>
                     </div>
                     <div className="text-green-400 text-sm">
-                      <p>✓ Updated theme system and added toggle</p>
+                      <p>Updated theme system and added toggle</p>
                     </div>
                   </div>
                 </div>
@@ -365,9 +365,10 @@ export default function Home() {
                   </div>
                   <div className="text-sm text-neutral-500">
                     <p className="mb-2">Built for speed:</p>
-                    <ul className="space-y-1">
-                      <li>• Instant server start ⚡</li>
-                      <li>• Lightning fast HMR 🔥</li>
+                                        <ul className="text-neutral-400 space-y-2">
+                      <li>• Instant server start</li>
+                      <li>• Hot module replacement</li>
+                      <li>• No npm install needed</li>
                     </ul>
                   </div>
                 </div>

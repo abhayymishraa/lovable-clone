@@ -415,11 +415,11 @@ def create_tools_with_context(
                 result += f"{context['semantic']}\n\n"
 
             if context.get("procedural"):
-                result += "⚙️ HOW THINGS WORK:\n"
-                result += f"{context['procedural']}\n\n"
+                result += "HOW THINGS WORK:\n"
+                result += context["procedural"] + "\n\n"
 
             if context.get("episodic"):
-                result += "📝 WHAT HAS BEEN DONE:\n"
+                result += "WHAT HAS BEEN DONE:\n"
                 result += f"{context['episodic']}\n\n"
 
             if context.get("files_created"):
@@ -430,14 +430,14 @@ def create_tools_with_context(
                 result += "\n\n"
 
             if context.get("conversation_history"):
-                result += "💬 CONVERSATION HISTORY:\n"
+                result += "CONVERSATION HISTORY:\n"
                 for i, conv in enumerate(context["conversation_history"][-5:], 1):
-                    status = "✅" if conv.get("success") else "❌"
+                    status = "[SUCCESS]" if conv.get("success") else "[FAILED]"
                     result += f"   {i}. {status} {conv.get('user_prompt', 'Unknown')[:80]}...\n"
                 result += "\n"
 
             if context.get("last_updated"):
-                result += f"🕒 Last Updated: {context['last_updated']}\n"
+                result += f"Last Updated: {context['last_updated']}\n"
 
             return result
 
@@ -490,9 +490,9 @@ def create_tools_with_context(
             }
 
             # Save to store
-            save_json_store(project_id, "context.json", context)
+            save_json_store(project_id, "context.json", context_data)
 
-            return f"✅ Context saved successfully for project {project_id}. This information will be available in future sessions."
+            return f"Context saved successfully for project {project_id}. This information will be available in future sessions."
 
         except Exception as e:
             return f"Failed to save context: {str(e)}"
@@ -589,7 +589,7 @@ def create_tools_with_context(
 
                 return result
             else:
-                return "✅ All dependencies are properly installed. No missing packages found."
+                return "All dependencies are properly installed. No missing packages found."
 
         except Exception as e:
             await safe_send_json(

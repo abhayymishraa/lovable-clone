@@ -215,7 +215,6 @@ export function MessageBubble({
     <div className="flex justify-start">
       <div className="max-w-2xl w-full bg-white/5 text-white border border-white/10 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <span className="text-lg shrink-0 mt-0.5">⚡</span>
           <div className="flex-1 min-w-0">
             {/* Use FormattedMessage component for formatted content */}
             {hasFormatted ? (
@@ -267,7 +266,7 @@ export function MessageBubble({
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-mono text-amber-300 mb-1">
-                        🔧 {currentTool.name}
+                        Tool: {currentTool.name}
                       </p>
                       {currentTool.status === "running" ? (
                         <p className="text-xs text-white/50">Processing...</p>

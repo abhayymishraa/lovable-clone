@@ -75,7 +75,7 @@ def format_plan_as_markdown(plan: dict) -> str:
     # Component Hierarchy - handle both formats
     hierarchy = plan.get("componentHierarchy") or plan.get("componentHierarchyAndStructure")
     if hierarchy:
-        lines.append("## 🏗️ Component Hierarchy\n")
+        lines.append("## Component Hierarchy\n")
         if isinstance(hierarchy, dict):
             if "rootComponent" in hierarchy:
                 lines.append(f"**Root:** `{hierarchy['rootComponent']}`\n")
@@ -126,7 +126,7 @@ def format_plan_as_markdown(plan: dict) -> str:
     # Page Routing
     routing = plan.get("pageRoutingStructure")
     if routing:
-        lines.append("## 🔀 Page Routing\n")
+        lines.append("## Page Routing\n")
         if isinstance(routing, dict):
             if "type" in routing:
                 lines.append(f"**Type:** {routing['type']}\n")
@@ -147,7 +147,7 @@ def format_plan_as_markdown(plan: dict) -> str:
     # Dependencies
     deps = plan.get("requiredDependencies")
     if deps:
-        lines.append("## 📦 Required Dependencies\n")
+        lines.append("## Required Dependencies\n")
         if isinstance(deps, dict):
             for category, packages in deps.items():
                 category_name = category.replace("_", " ").title()
@@ -199,7 +199,7 @@ def format_plan_as_markdown(plan: dict) -> str:
     # Implementation Steps
     steps = plan.get("implementationSteps")
     if steps:
-        lines.append("## 🚀 Implementation Steps\n")
+        lines.append("## Implementation Steps\n")
         if isinstance(steps, list):
             for i, step in enumerate(steps, 1):
                 if isinstance(step, dict):
