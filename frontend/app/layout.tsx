@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   title: "WEB BUILDER AI",
   description: "Build React applications with AI",
   icons: {
-    icon: "/logo.png",
+    icon: "/logo2.png",
   },
   openGraph: {
     title: "WEB BUILDER AI ",
